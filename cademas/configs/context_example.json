@@ -1,0 +1,30 @@
+{
+  "context_id": "retention_priority_context",
+  "aggregation_operator": "min",
+  "factors": [
+    {
+      "name": "RoleCriticality",
+      "variable": "JobLevel",
+      "membership": {
+        "type": "trapezoidal",
+        "parameters": [2, 3, 5, 5]
+      }
+    },
+    {
+      "name": "ReplacementDifficulty",
+      "variable": "TotalWorkingYears",
+      "membership": {
+        "type": "trapezoidal",
+        "parameters": [5, 8, 40, 40]
+      }
+    },
+    {
+      "name": "CareerStagnation",
+      "variable": "YearsSinceLastPromotion",
+      "membership": {
+        "type": "triangular",
+        "parameters": [1, 3, 6]
+      }
+    }
+  ]
+}

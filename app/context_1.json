@@ -1,0 +1,23 @@
+{
+  "context_name": "Mixed Shape Profile",
+  "rules": [
+    {
+      "feature": "Age",
+      "type": "trapezoidal",
+      "params": [20, 25, 35, 40],
+      "note": "Ideal entre 25 y 35 (plana en 1). Cae a 0 antes de 20 y después de 40."
+    },
+    {
+      "feature": "MonthlyIncome",
+      "type": "linear_increasing",
+      "params": [3000, 8000],
+      "note": "Menos de 3000 es bajo (0). Sube linealmente. Más de 8000 es Alto (1)."
+    },
+    {
+      "feature": "DistanceFromHome",
+      "type": "linear_decreasing",
+      "params": [5, 20],
+      "note": "Menos de 5km es ideal (1). Baja linealmente. Más de 20km es lejos (0)."
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+from traceback import print_last
+
 import streamlit as st
 import h2o
 import pandas as pd
@@ -7,6 +9,7 @@ import os
 import tempfile
 import altair as alt
 import streamlit.components.v1 as components
+from h2o.model import ModelBase
 
 st.set_page_config(page_title="CADEMAS-ML – Cooperative and Context-Aware Decision Support", layout="wide")
 
@@ -283,7 +286,7 @@ with st.sidebar:
     with st.expander("3. Context Parameters", expanded=False):
         aggregation_method = st.selectbox("Context aggregation operator", ["average", "minimum (strict)", "product"])
 
-    run_calc = st.button("Run analysis", type="primary", use_container_width=True)
+    run_calc = st.button("Run analysis", type="primary", width='stretch')
 
     st.markdown("## Decision Adjustment")
     lambda_val = st.slider("Lambda (weight)", 0.0, 1.0, 0.5, 0.01)
@@ -296,13 +299,13 @@ if 'fuzzy_details' not in st.session_state: st.session_state.fuzzy_details = Non
 if 'ml_details' not in st.session_state: st.session_state.ml_details = None
 if 'context_config' not in st.session_state: st.session_state.context_config = None  # Guardamos config para graficar
 if 'master_data' not in st.session_state: st.session_state.master_data = None  # Guardamos raw data para histogramas
-
+if 'p_label' not in st.session_state: st.session_state.p_label = None
 
 
 # --- 5. EJECUCIÓN ---
 if run_calc:
     if feature_config and model_files and data_file and selected_metric and json_context:
-        with st.spinner("🧠 Processing..."):
+        with st.spinner(text="Processing...", show_time=True):
             try:
                 # A. Carga
                 data_file.seek(0)
@@ -316,7 +319,12 @@ if run_calc:
 
                 # B. Pesos ML
                 valid_models = [m.name for m in model_files if m.name in feature_config]
+
+
                 metrics_vals = {m: feature_config[m]["performance"].get(selected_metric, 0) for m in valid_models}
+
+
+
                 total = sum(metrics_vals.values())
                 weights = {m: (val / total if total > 0 else 1 / len(valid_models)) for m, val in metrics_vals.items()}
 
@@ -330,12 +338,25 @@ if run_calc:
                 for i, m_file in enumerate(model_files):
                     if m_file.name not in weights: continue
                     path = save_temp_file(m_file)
-                    cols = feature_config[m_file.name]["features"]
-                    hf = h2o.H2OFrame(master_df[cols])
                     try:
                         mojo = h2o.import_mojo(path)
+                        #output = mojo._model_json['output']
+                        # Columnas originales usadas por el modelo
+                        #input_cols = list(output['names'])
+                        # Eliminar la variable objetivo si aparece
+                        #response = output.get('response_column')
+                        #if response in input_cols:
+                        #    input_cols.remove(response)
+                        # Subconjunto seguro del master dataset
+                        hf = h2o.H2OFrame(master_df)
                         preds = mojo.predict(hf).as_data_frame()
+                        print(f"Columns: {preds.columns}")
                         p_col = 'p1' if 'p1' in preds.columns else preds.columns[-1]
+                        current_p_label = preds.columns[-1]
+                        st.session_state.p_label = current_p_label if st.session_state.p_label is None else st.session_state.p_label
+                        if st.session_state.p_label != current_p_label:
+                            st.error(f"Error: Predicted label is not the same across models.")
+                            st.stop()
                         vals = preds[p_col].values
                         risk_accum += vals * weights[m_file.name]
                         temp_results[f"{m_file.name.split('.')[0]}_prob"] = vals
@@ -377,7 +398,8 @@ if st.session_state.base_results is not None:
 
     # --- TAB 1 ---
     with tab1:
-        c0, c1, c2, c3, c4 = st.columns(5)
+        c01, c0, c1, c2, c3, c4 = st.columns(6)
+        c01.metric("Positive label", f"{st.session_state.p_label}")
         c0.metric(label="Cases (n)", value=f"{len(df['Final_Score'])}")
         c1.metric(label="Avg. Prior. Score", value=f"{df['Final_Score'].mean():.1%}")
         c2.metric("Avg. Global Risk (Ri)", f"{df['Ri_Global_Risk'].mean():.1%}")
@@ -396,7 +418,7 @@ if st.session_state.base_results is not None:
                 color=alt.Color('Final_Score', scale=alt.Scale(scheme='turbo'), title='Prior. Score'),
                 tooltip=['Ri_Global_Risk', 'Ci_Context_Score', 'Final_Score']
             ).interactive()
-            st.altair_chart(scatter, use_container_width=True)
+            st.altair_chart(scatter, width='stretch')
 
         with g2:
             st.subheader("Prioritization Score")
@@ -406,7 +428,7 @@ if st.session_state.base_results is not None:
                 y=alt.Y('count()', title='Number of Cases'),
                 color=alt.value("#1E88E5")
             )
-            st.altair_chart(hist, use_container_width=True)
+            st.altair_chart(hist, width='stretch')
 
         st.subheader("Prioritized Cases")
 
@@ -440,7 +462,7 @@ if st.session_state.base_results is not None:
             styled_df,
             column_config={
                 "Final_Score": st.column_config.NumberColumn(
-                    "Global Prioritization Score",
+                    "Prioritization Score",
                     help="Weighted final prioritization score",
                     format="percent",
                 ),
@@ -459,7 +481,7 @@ if st.session_state.base_results is not None:
                     color="auto-inverse"
                 ),
             },
-            use_container_width=True,
+            width='stretch',
             height=500
         )
 
@@ -469,7 +491,7 @@ if st.session_state.base_results is not None:
         if st.session_state.ml_details:
             weights = st.session_state.ml_details["weights"]
             w_df = pd.DataFrame(list(weights.items()), columns=["Model", "Weight (Wi)"])
-            st.dataframe(w_df, use_container_width=True)
+            st.dataframe(w_df, width='stretch')
         st.subheader("ADM Risk Probabilities")
         id_col = "CaseID"
         prob_cols = [c for c in df.columns if c.endswith("_prob")]
@@ -505,7 +527,7 @@ if st.session_state.base_results is not None:
                     max_value=1,
                 )
             },
-            use_container_width=True
+            width='stretch'
         )
 
     # --- TAB 3 (Visualización Difusa con Altair) ---
@@ -591,20 +613,20 @@ if st.session_state.base_results is not None:
 
             # Capa 1: Histograma
             hist = alt.Chart(raw_data).mark_bar(color='#e0e0e0', opacity=0.7).encode(
-                x=alt.X(feat, bin=alt.Bin(maxbins=40), title=feat),
-                y=alt.Y('count()', title='Frecuencia'),
+                x=alt.X(feat, bin=alt.Bin(maxbins=30), title=feat),
+                y=alt.Y('count()', title='Frequency'),
                 tooltip=['count()']
             )
 
             # Capa 2: Curva Membresía
             line = alt.Chart(line_df).mark_line(color="#FF4B4B", strokeWidth=3).encode(
                 x='x_val',
-                y=alt.Y('membership', title='Membresía (μ)', scale=alt.Scale(domain=[0.0, 1])),
+                y=alt.Y('membership', title='Membership (μ)', scale=alt.Scale(domain=[0.0, 1])),
                 tooltip=[alt.Tooltip('x_val', format='.2f'), alt.Tooltip('membership', format='.2f')]
             )
 
             # Capa 3: Referencias Verticales
-            refs = alt.Chart(rules_df).mark_rule(strokeDash=[10, 10], color='black', opacity=0.5).encode(
+            refs = alt.Chart(rules_df).mark_rule(strokeDash=[5, 5],  strokeWidth=2, color='black', opacity=0.5).encode(
                 x='x_pos',
                 tooltip=['label', 'x_pos']
             )
@@ -614,26 +636,46 @@ if st.session_state.base_results is not None:
                 y='independent'
             ).properties(
                 height=350,
-                title=f"Membership rule ({s_type}) for '{feat}'"
+                title=f"Membership and Frequency for '{feat}'"
             )
 
-            st.altair_chart(final_chart, use_container_width=True)
+            st.altair_chart(final_chart, width='stretch')
 
         else:
             st.warning(f"Column '{feat}' is not present in the dataset.")
 
-        st.divider()
         st.subheader("Numerical Audit")
 
         # Tabla detallada
-        audit_cols = [feat, f"mu_{feat}"]
+        feature_name = f"mu_{feat}"
+        audit_cols = [feat, feature_name]
         if f"mu_{feat}" in st.session_state.fuzzy_details.columns:
             id_col = "CaseID"
+
             audit_df = pd.concat([
                 raw_data[[id_col, feat]].reset_index(drop=True),
-                st.session_state.fuzzy_details[[f"mu_{feat}"]].reset_index(drop=True)
+                st.session_state.fuzzy_details[[feature_name]].reset_index(drop=True)
             ], axis=1)
-            st.dataframe(audit_df.head(100), use_container_width=True)
+
+            styled_context_df = audit_df.style \
+                .format("{:.1%}", subset=[feature_name]) \
+                .background_gradient(cmap='RdYlGn_r', subset=[feature_name], vmin=0, vmax=1)
+
+
+
+
+            st.dataframe(
+                styled_context_df,
+                column_config={
+                    feature_name: st.column_config.ProgressColumn(
+                        f"μ({feat})",
+                        format="%.2f",
+                        min_value=0,
+                        max_value=1,
+                    )
+                },
+                width='stretch'
+            )
 
 else:
     st.title("CADEMAS-ML")

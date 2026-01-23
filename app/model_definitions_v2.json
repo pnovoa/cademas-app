@@ -1,0 +1,18 @@
+{
+  "gbm_cw.zip": {
+    "department": "Culture and Wellbeing",
+    "performance": {
+      "auc": 0.85,
+      "accuracy": 0.88,
+      "f1_score": 0.76
+    }
+  },
+  "drt-hr.zip": {
+    "department": "Human Resources",
+    "performance": {
+      "auc": 0.78,
+      "accuracy": 0.80,
+      "gini": 0.56
+    }
+  }
+}

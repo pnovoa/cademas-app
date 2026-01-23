@@ -1,0 +1,7 @@
+/* Importar fuente de Google Fonts (ejemplo: 'Roboto') */
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900');
+
+/* Aplicar la fuente a toda la app */
+html, body, header, h1, h2 [class*="css"] {
+    font-family: 'Geist Mono', sans-serif;
+}

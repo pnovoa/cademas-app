@@ -1,0 +1,4 @@
+[theme]
+font = "'Geist Mono':https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900"
+codeFont = "'Geist Mono':https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900"
+baseFontSize = 13

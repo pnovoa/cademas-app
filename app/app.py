@@ -6,17 +6,160 @@ import json
 import os
 import tempfile
 import altair as alt
-import matplotlib.pyplot as plt
+import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Cooperative, Context-aware DSS", layout="wide", page_icon="🧠")
+st.set_page_config(page_title="CADEMAS-ML", layout="wide")
 
-# --- ESTILOS CSS ---
-st.markdown("""
+custom_css = """
 <style>
-    .main-header {font-size: 2rem; color: #1E88E5;}
-    .metric-card {background-color: #f0f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid #1E88E5;}
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+    font-size:11pt;
+    align-items:center;
+    }
 </style>
-""", unsafe_allow_html=True)
+"""
+
+st.markdown(custom_css, unsafe_allow_html=True)
+
+
+def render_animated_header():
+    """
+    Renderiza el diagrama de flujo animado usando un iframe aislado
+    para garantizar que los estilos y animaciones funcionen en cualquier navegador.
+    """
+    html_code = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <style>
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap');
+</style>
+        <style>
+            body { margin: 0; padding: 0; background-color: transparent; font-family: 'Geist Mono'; overflow: hidden; }
+            .container {
+                width: 100%;
+                height: 180px;
+                background: linear-gradient(90deg, #0e1117 0%, #1a1c24 100%);
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            svg { width: 100%; height: 100%; max-width: 900px; }
+
+            /* Estilos estáticos */
+            .node-rect { fill: #1f2937; stroke: #374151; stroke-width: 2px; rx: 6px; }
+            .text-title { fill: #f3f4f6; font-size: 12px; font-weight: semibold; font-family: 'Geist Mono', monospace; pointer-events: none; }
+            .text-sub { fill: #9ca3af; font-size: 10px; font-family: 'Geist Mono', monospace; pointer-events: none; }
+
+            /* Colores de los nodos */
+            .stroke-ml { stroke: #3b82f6; }
+            .stroke-fuzzy { stroke: #f97316; }
+            .stroke-hybrid { stroke: #8b5cf6; }
+
+            /* Caminos */
+            .path-line { fill: none; stroke: #4b5563; stroke-width: 2px; opacity: 0.3; }
+
+            /* Partículas brillantes */
+            .dot { fill: white; filter: drop-shadow(0 0 4px rgba(255,255,255,0.8)); }
+            .dot-ml { fill: #60a5fa; }
+            .dot-fuzzy { fill: #fb923c; }
+            .dot-hybrid { fill: #a78bfa; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <svg viewBox="0 0 800 160" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <path id="p1" d="M 90 50 L 240 50" />
+                    <path id="p2" d="M 90 110 L 240 110" />
+                    <path id="p3" d="M 340 50 L 460 80" />
+                    <path id="p4" d="M 340 110 L 460 80" />
+                    <path id="p5" d="M 560 80 L 670 80" />
+                </defs>
+
+                <path d="M 90 50 L 240 50" class="path-line" />
+                <path d="M 90 110 L 240 110" class="path-line" />
+                <path d="M 340 50 L 460 80" class="path-line" />
+                <path d="M 340 110 L 460 80" class="path-line" />
+                <path d="M 560 80 L 670 80" class="path-line" />
+
+                <g transform="translate(10, 30)">
+                    <rect width="80" height="40" class="node-rect" />
+                    <text x="40" y="20" text-anchor="middle" dominant-baseline="middle" class="text-title">DATOS</text>
+                    <text x="40" y="32" text-anchor="middle" class="text-sub">CSV</text>
+                </g>
+                <g transform="translate(10, 90)">
+                    <rect width="80" height="40" class="node-rect" />
+                    <text x="40" y="20" text-anchor="middle" dominant-baseline="middle" class="text-title">REGLAS</text>
+                    <text x="40" y="32" text-anchor="middle" class="text-sub">JSON</text>
+                </g>
+
+                <g transform="translate(240, 30)">
+                    <rect width="100" height="40" class="node-rect stroke-ml" />
+                    <text x="50" y="20" text-anchor="middle" dominant-baseline="middle" class="text-title">ML ENSEMBLE</text>
+                    <text x="50" y="32" text-anchor="middle" class="text-sub">Riesgo (Ri)</text>
+                </g>
+                <g transform="translate(240, 90)">
+                    <rect width="100" height="40" class="node-rect stroke-fuzzy" />
+                    <text x="50" y="20" text-anchor="middle" dominant-baseline="middle" class="text-title">FUZZY LOGIC</text>
+                    <text x="50" y="32" text-anchor="middle" class="text-sub">Contexto (Ci)</text>
+                </g>
+
+                <g transform="translate(460, 60)">
+                    <rect width="100" height="40" class="node-rect stroke-hybrid" />
+                    <text x="50" y="20" text-anchor="middle" dominant-baseline="middle" class="text-title">HYBRID CORE</text>
+                    <text x="50" y="32" text-anchor="middle" class="text-sub">λ•Ri + (1-λ)•Ci</text>
+                </g>
+
+                <g transform="translate(670, 60)">
+                    <rect width="100" height="40" class="node-rect" />
+                    <text x="50" y="20" text-anchor="middle" dominant-baseline="middle" class="text-title">DASHBOARD</text>
+                    <text x="50" y="32" text-anchor="middle" class="text-sub">Decisión</text>
+                </g>
+
+                <circle r="4" class="dot dot-ml">
+                    <animateMotion dur="2s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                        <mpath href="#p1"/>
+                    </animateMotion>
+                    <animate attributeName="opacity" values="0;1;1;0" dur="2s" repeatCount="indefinite" />
+                </circle>
+
+                <circle r="4" class="dot dot-fuzzy">
+                    <animateMotion dur="2.5s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                        <mpath href="#p2"/>
+                    </animateMotion>
+                    <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" repeatCount="indefinite" />
+                </circle>
+
+                <circle r="4" class="dot dot-ml">
+                    <animateMotion dur="2s" begin="1s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                        <mpath href="#p3"/>
+                    </animateMotion>
+                     <animate attributeName="opacity" values="0;1;1;0" dur="2s" begin="1s" repeatCount="indefinite" />
+                </circle>
+
+                <circle r="4" class="dot dot-fuzzy">
+                    <animateMotion dur="2.5s" begin="1.2s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                        <mpath href="#p4"/>
+                    </animateMotion>
+                     <animate attributeName="opacity" values="0;1;1;0" dur="2.5s" begin="1.2s" repeatCount="indefinite" />
+                </circle>
+
+                 <circle r="5" class="dot dot-hybrid">
+                    <animateMotion dur="3s" begin="0.5s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                        <mpath href="#p5"/>
+                    </animateMotion>
+                     <animate attributeName="opacity" values="0;1;1;0" dur="3s" begin="0.5s" repeatCount="indefinite" />
+                </circle>
+
+            </svg>
+        </div>
+    </body>
+    </html>
+    """
+    # Renderizamos el componente HTML con una altura fija para evitar scrollbars
+    components.html(html_code, height=190, scrolling=False)
 
 
 # --- 1. Inicialización ---
@@ -114,32 +257,31 @@ def calculate_context_score(df, context_config, aggregation):
 
 # --- 3. SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=50)
+    # st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=50)
     st.title("Configuración")
 
-    with st.expander("📂 1. Archivos y Datos", expanded=True):
-        json_ml = st.file_uploader("Config. Modelos (JSON)", type=['json'])
-        json_context = st.file_uploader("Config. Contexto (JSON)", type=['json'])
+    with st.expander("1. Archivos y Datos", expanded=True):
+        json_ml = st.file_uploader("Configuración de los Modelos (JSON)", type=['json'])
+        json_context = st.file_uploader("Configuración del Contexto (JSON)", type=['json'])
         model_files = st.file_uploader("Modelos MOJO (.zip)", type=['zip'], accept_multiple_files=True)
         data_file = st.file_uploader("Dataset (.csv)", type=['csv'])
 
-    with st.expander("⚙️ 2. Parámetros ML", expanded=False):
+    with st.expander("2. Parámetros de ML", expanded=False):
         selected_metric = None
         if json_ml:
             feature_config = json.load(json_ml)
             first_key = list(feature_config.keys())[0]
             metrics = list(feature_config[first_key].get("performance", {}).keys())
-            selected_metric = st.selectbox("Métrica de Peso (Wi)", metrics)
+            selected_metric = st.selectbox("Métrica para el peso (w)", metrics)
 
-    with st.expander("🧠 3. Parámetros Difusos", expanded=False):
+    with st.expander("3. Parámetros del contexto", expanded=False):
         aggregation_method = st.selectbox("Agregación Contexto", ["average", "minimum (strict)", "product"])
 
-    run_calc = st.button("🚀 EJECUTAR ANÁLISIS", type="primary", use_container_width=True)
+    run_calc = st.button("Ejecutar el análisis", type="primary", use_container_width=True)
 
-    st.divider()
-    st.markdown("### Ajuste de Decisión")
-    lambda_val = st.slider("⚖️ Lambda (Peso ML)", 0.0, 1.0, 0.5, 0.05)
-    st.caption(f"ML: {lambda_val:.0%} | Contexto: {1 - lambda_val:.0%}")
+    st.markdown("## Ajuste de Decisión")
+    lambda_val = st.slider("Lambda (Peso)", 0.0, 1.0, 0.5, 0.01)
+    st.caption(f"Riesgo: {lambda_val:.0%} | Contexto: {1 - lambda_val:.0%}")
 
 # --- 4. ESTADO ---
 if 'base_results' not in st.session_state: st.session_state.base_results = None
@@ -211,23 +353,24 @@ if st.session_state.base_results is not None:
     df = st.session_state.base_results.copy()
     df["Final_Score"] = (lambda_val * df["Ri_Global_Risk"]) + ((1 - lambda_val) * df["Ci_Context_Score"])
 
-    st.markdown("<h1 class='main-header'>Dashboard de Decisión</h1>", unsafe_allow_html=True)
+    # st.markdown("<h1 class='main-header'>Dashboard</h1>", unsafe_allow_html=True)
+    st.title("CADEMAS-ML")
 
-    tab1, tab2, tab3 = st.tabs(["📊 Resumen Ejecutivo", "🤖 Auditoría ML", "🧠 Auditoría Contexto"])
+    tab1, tab2, tab3 = st.tabs(["Resumen", "Modelos de ML", "Contexto"])
 
     # --- TAB 1 ---
     with tab1:
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Riesgo Global (Promedio)", f"{df['Ri_Global_Risk'].mean():.1%}")
-        c2.metric("Ajuste Contexto (Promedio)", f"{df['Ci_Context_Score'].mean():.1%}")
-        c3.metric("Score Final (Promedio)", f"{df['Final_Score'].mean():.1%}")
-        c4.metric("Alto Riesgo (n, > 0.8)", len(df[df["Final_Score"] > 0.8]))
+        c1.metric(label="Score Final (Promedio)", value=f"{df['Final_Score'].mean():.1%}")
+        c2.metric("Riesgo Global (Promedio)", f"{df['Ri_Global_Risk'].mean():.1%}")
+        c3.metric("Ajuste Contexto (Promedio)", f"{df['Ci_Context_Score'].mean():.1%}")
+        c4.metric("Prioridad Alta (SF > 0.8)", len(df[df["Final_Score"] > 0.8]))
 
         st.divider()
 
-        g1, g2 = st.columns([2, 1])
+        g1, g2 = st.columns([1.5, 1])
         with g1:
-            st.subheader("Mapa de Riesgo vs Contexto")
+            st.subheader("Score Final (Riesgo vs Contexto)")
             # Scatter Plot con Altair
             scatter = alt.Chart(df).mark_circle(size=60).encode(
                 x=alt.X('Ri_Global_Risk', title='Riesgo ML (0-1)'),
@@ -255,17 +398,17 @@ if st.session_state.base_results is not None:
 
     # --- TAB 2 ---
     with tab2:
-        st.subheader("Pesos del Ensemble")
+        st.subheader("Pesos de los modelos")
         if st.session_state.ml_details:
             weights = st.session_state.ml_details["weights"]
             w_df = pd.DataFrame(list(weights.items()), columns=["Modelo", "Peso (Wi)"])
             st.dataframe(w_df, use_container_width=True)
-        st.subheader("Probabilidades Crudas")
+        st.subheader("Probabilidades de riesgo")
         st.dataframe(df[[c for c in df.columns if c.endswith("_prob")]], use_container_width=True)
 
     # --- TAB 3 (Visualización Difusa con Altair) ---
     with tab3:
-        st.subheader("Visualización Interactiva de Funciones de Membresía")
+        st.subheader("Funciones de Membresía")
 
         # 1. Selector de Regla Inteligente
         rules = st.session_state.context_config['rules']
@@ -395,4 +538,7 @@ if st.session_state.base_results is not None:
             st.dataframe(audit_df.head(100), use_container_width=True)
 
 else:
+    st.title("CADEMAS-ML")
+    st.subheader("Bienvenido a CADEMAS-ML, un sistema de apoyo a la toma de decisiones cooperativo y contextual.")
     st.info("👈 Sube los archivos para comenzar.")
+    render_animated_header()

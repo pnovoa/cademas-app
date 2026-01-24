@@ -610,7 +610,7 @@ if st.session_state.base_results is not None:
     # st.markdown("<h1 class='main-header'>Dashboard</h1>", unsafe_allow_html=True)
     st.title("CADEMAS-ML")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Models", "Context", "About"])
+    tab1, tab2, tab3, tab_decision, tab4 = st.tabs(["Overview", "Models", "Context", "Decision", "About"])
 
     # --- TAB 1 ---
     with tab1:
@@ -936,6 +936,100 @@ if st.session_state.base_results is not None:
         else:
             st.info("No derived rules defined in the context configuration.")
 
+
+    # --- NUEVO TAB: DECISION (MEJORADO) ---
+    with tab_decision:
+        st.subheader("Sensitivity Analysis (Bump Chart)")
+        st.markdown(f"""
+        Visualize how the **Priority Ranking** changes when moving the weight ($\\lambda$) 
+        from pure Context Alignment ($\\lambda = 0$) to pure ML Risk ($\\lambda = 1$). 
+        Cases shown were selected for $\\lambda = {lambda_val}$.
+        """)
+
+        # A. CONTROLS
+        c_ctrl1, c_ctrl2 = st.columns(2)
+        with c_ctrl1:
+            n_partitions = st.slider("Lambda Partitions (Steps)", min_value=2, max_value=10, value=4)
+        with c_ctrl2:
+            top_n_show = st.slider("Show Top N Cases", min_value=5, max_value=50, value=15,
+                                   help="Filters the cases with the highest average ranking.")
+
+        # B. DATA PREPARATION
+        # Generate exact steps. E.g.: [0.0, 0.25, 0.5, 0.75, 1.0]
+        lambda_steps = np.linspace(0, 1, n_partitions + 1)
+
+        bump_data = []
+        for l_step in lambda_steps:
+            temp_df = df[[id_col, "Ri_Global_Risk", "Ci_Context_Score"]].copy()
+            # Simulated Score
+            temp_df["Sim_Score"] = (l_step * temp_df["Ri_Global_Risk"]) + (
+                    (1 - l_step) * temp_df["Ci_Context_Score"])
+            # Ranking (method='first' breaks ties by order of appearance)
+            temp_df["Rank"] = temp_df["Sim_Score"].rank(ascending=False, method='first')
+            temp_df["Lambda"] = l_step
+            bump_data.append(temp_df)
+
+        bump_df = pd.concat(bump_data)
+
+        # C. FILTERING (TOP N)
+        avg_ranks = bump_df.groupby(id_col)["Rank"].mean().sort_values()
+        top_ids = avg_ranks.head(top_n_show).index.tolist()
+        filtered_bump_df = bump_df[bump_df[id_col].isin(top_ids)]
+
+        # D. ALTAIR CHART LAYERS
+
+        # 1. Base Chart (Define common axes)
+        # Note: On the X axis we force 'values' to show only the exact partitions.
+        base = alt.Chart(filtered_bump_df).encode(
+            x=alt.X('Lambda:Q',
+                    axis=alt.Axis(values=list(lambda_steps), format='.2f', title="Lambda Weight (λ)"),
+                    scale=alt.Scale(domain=[0, 1])
+                    ),
+            y=alt.Y('Rank:Q',
+                    title='Ranking (1 = Highest Priority)',
+                    scale=alt.Scale(reverse=True, zero=False),  # reverse=True puts 1 at the top
+                    axis=alt.Axis(tickMinStep=1)  # Only integers on Y axis
+                    ),
+            color=alt.Color(f'{id_col}:N', legend=None)  # Remove side legend to use direct labels
+        )
+
+        # 2. Line Layer (Smooth interpolation)
+        lines = base.mark_line(interpolate='monotone', strokeWidth=3).encode(
+            tooltip=[
+                alt.Tooltip(id_col, title="ID"),
+                alt.Tooltip("Lambda", format=".2f"),
+                alt.Tooltip("Rank", title="Ranking"),
+                alt.Tooltip("Sim_Score", title="Score", format=".1%")
+            ]
+        )
+
+        # 3. Points Layer (Big circles)
+        # Using size=100 (or more) to make them bigger than the line
+        points = base.mark_circle(size=120, opacity=1).encode(
+            tooltip=[alt.Tooltip(id_col), alt.Tooltip("Rank")]
+        )
+
+        # 4. Left Labels (Lambda = 0)
+        text_start = base.mark_text(align='right', dx=-12, fontSize=11).encode(
+            text=f'{id_col}:N'
+        ).transform_filter(
+            (alt.datum.Lambda == 0.0)
+        )
+
+        # 5. Right Labels (Lambda = 1)
+        text_end = base.mark_text(align='left', dx=12, fontSize=11).encode(
+            text=f'{id_col}:N'
+        ).transform_filter(
+            (alt.datum.Lambda == 1.0)
+        )
+
+        # Combine everything
+        final_chart = (lines + points + text_start + text_end).interactive()
+
+        st.altair_chart(final_chart, width='stretch', theme="streamlit", height=500)
+
+        st.info(f"Showing the top {len(top_ids)} ranked cases with above-average ranking.")
+
 # --- TAB 4 ---
     with tab4:
         st.subheader("About")
@@ -943,12 +1037,11 @@ if st.session_state.base_results is not None:
         st.markdown(
             """
             **Authors:**
-            - Pavel Novoa Hernández (Universidad de La Laguna) — pnovoahe@ull.edu.es
-            - David A. Pelta (Universidad de Granada) — dpelta@ugr.es
-            - Mariia Godz (Universidad de Granada) — mariiagodz@ugr.es
+            - **Pavel Novoa Hernández** (Universidad de La Laguna, Spain) — pnovoahe@ull.edu.es
+            - David A. Pelta (Universidad de Granada, Spain) — dpelta@ugr.es
+            - Mariia Godz (Universidad de Granada, Spain) — mariiagodz@ugr.es
 
             This application has been funded by the project:
-
             *Study, Analysis and Evaluation of Cooperative Automated Decision-Making Systems (CADEMAS)* \
             (reference number **PID2023-146575NB-I00**), funded by **MCIU/AEI/10.13039/501100011033** and by **FSE+**.
             """

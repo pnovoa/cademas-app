@@ -506,7 +506,7 @@ with st.sidebar:
 
     st.markdown("## Decision Adjustment")
     lambda_val = st.slider("Lambda (weight)", 0.0, 1.0, 0.5, 0.01)
-    st.caption(f"Risk contribution: {lambda_val:.0%} | Context contribution: {1 - lambda_val:.0%}")
+    st.caption(f"Context contribution: {1 - lambda_val:.0%} | Risk contribution: {lambda_val:.0%}")
 
 
 # --- 4. ESTADO ---
@@ -587,6 +587,7 @@ if run_calc:
                 ci_scores, fuzzy_df = calculate_context_score(master_df, context_config, aggregation_method)
                 temp_results["Ci_Context_Score"] = ci_scores
 
+
                 st.session_state.base_results = temp_results
                 st.session_state.fuzzy_details = fuzzy_df
 
@@ -601,7 +602,7 @@ if run_calc:
 
 if st.session_state.base_results is not None:
     df = st.session_state.base_results.copy()
-    df["Final_Score"] = (lambda_val * df["Ri_Global_Risk"]) + ((1 - lambda_val) * df["Ci_Context_Score"])
+    df["Prioritization_Score "] = (lambda_val * df["Ri_Global_Risk"]) + ((1 - lambda_val) * df["Ci_Context_Score"])
 
     df["ML_Contribution"] = lambda_val * df["Ri_Global_Risk"]
     df["Context_Contribution"] = (1 - lambda_val) * df["Ci_Context_Score"]
@@ -616,11 +617,11 @@ if st.session_state.base_results is not None:
     with tab1:
         c01, c0, c1, c2, c3, c4 = st.columns(6)
         c01.metric("Positive label", f"{st.session_state.p_label}")
-        c0.metric(label="Cases (n)", value=f"{len(df['Final_Score'])}")
-        c1.metric(label="Avg. Prior. Score", value=f"{df['Final_Score'].mean():.1%}")
+        c0.metric(label="Cases (n)", value=f"{len(df['Prioritization_Score '])}")
+        c1.metric(label="Avg. Prior. Score", value=f"{df['Prioritization_Score '].mean():.1%}")
         c2.metric("Avg. Global Risk (Ri)", f"{df['Ri_Global_Risk'].mean():.1%}")
         c3.metric("Avg. Context Align. (Ci)", f"{df['Ci_Context_Score'].mean():.1%}")
-        c4.metric("High Priority Cases (> 0.8)", len(df[df["Final_Score"] > 0.8]))
+        c4.metric("High Priority Cases (> 0.75)", len(df[df["Prioritization_Score "] > 0.75]))
 
         st.divider()
 
@@ -631,8 +632,8 @@ if st.session_state.base_results is not None:
             scatter = alt.Chart(df).mark_circle(size=60).encode(
                 x=alt.X('Ri_Global_Risk', title='ML Risk Score Ri (0–1)'),
                 y=alt.Y('Ci_Context_Score', title='Context Alignment Ci (0–1)'),
-                color=alt.Color('Final_Score', scale=alt.Scale(scheme='turbo'), title='Prior. Score'),
-                tooltip=['Ri_Global_Risk', 'Ci_Context_Score', 'Final_Score']
+                color=alt.Color('Prioritization_Score ', scale=alt.Scale(scheme='turbo'), title='Prior. Score'),
+                tooltip=['CaseID', 'Ri_Global_Risk', 'Ci_Context_Score', 'Prioritization_Score ']
             ).interactive()
             st.altair_chart(scatter, width='stretch')
 
@@ -640,7 +641,7 @@ if st.session_state.base_results is not None:
             st.subheader("Prioritization Score")
             # Histograma Mejorado con Altair
             hist = alt.Chart(df).mark_bar().encode(
-                x=alt.X("Final_Score", bin=alt.Bin(step=0.1), title="Global Score Range"),
+                x=alt.X("Prioritization_Score ", bin=alt.Bin(step=0.1), title="Global Score Range"),
                 y=alt.Y('count()', title='Number of Cases'),
                 color=alt.value("#1E88E5")
             )
@@ -654,7 +655,7 @@ if st.session_state.base_results is not None:
         # Columnas calculadas (en orden lógico)
         calculated_cols = (
             [id_col] +
-            ["Final_Score", "Ri_Global_Risk", "Ci_Context_Score",
+            ["Prioritization_Score ", "Ri_Global_Risk", "Ci_Context_Score",
              "Lambda", "ML_Contribution", "Context_Contribution"] +
             prob_cols
         )
@@ -666,18 +667,18 @@ if st.session_state.base_results is not None:
         final_cols = calculated_cols + original_cols
 
         # 2. Aplicamos Estilos con Pandas (Heatmap)
-        cols_main = ["Final_Score", "Ri_Global_Risk", "Ci_Context_Score"]
+        cols_main = ["Prioritization_Score ", "Ri_Global_Risk", "Ci_Context_Score"]
 
-        styled_df = df[final_cols].sort_values("Final_Score", ascending=False).style \
+        styled_df = df[final_cols].sort_values("Prioritization_Score ", ascending=False).style \
             .format("{:.1%}", subset=cols_main) \
-            .background_gradient(cmap='RdYlGn_r', subset=['Final_Score'], vmin=0, vmax=1)
+            .background_gradient(cmap='RdYlGn_r', subset=['Prioritization_Score '], vmin=0, vmax=1)
         # Nota: RdYlGn_r pone Verde en 0 (Bajo riesgo) y Rojo en 1 (Alto riesgo)
 
         # 3. Renderizamos con Column Config para toques extra
         st.dataframe(
             styled_df,
             column_config={
-                "Final_Score": st.column_config.NumberColumn(
+                "Prioritization_Score ": st.column_config.NumberColumn(
                     "Prioritization Score",
                     help="Weighted final prioritization score",
                     format="percent",
@@ -755,10 +756,10 @@ if st.session_state.base_results is not None:
 
         # Diccionario para nombres bonitos en la UI
         type_labels = {
-            'triangular': 'Triángulo',
-            'trapezoidal': 'Trapecio',
-            'linear_increasing': 'Lineal creciente',
-            'linear_decreasing': 'Lineal decreciente'
+            'triangular': 'Triangle',
+            'trapezoidal': 'Trapezoidal',
+            'linear_increasing': 'Linear increasing',
+            'linear_decreasing': 'Linear decreasing'
         }
 
         # Generamos la lista de opciones formateadas
@@ -882,22 +883,29 @@ if st.session_state.base_results is not None:
                 st.session_state.fuzzy_details[[feature_name]].reset_index(drop=True)
             ], axis=1)
 
-            styled_context_df = audit_df.style \
-                .format("{:.1%}", subset=[feature_name]) \
-                .background_gradient(cmap='RdYlGn_r', subset=[feature_name], vmin=0, vmax=1)
+            if feat in raw_data.columns and m_type in ('categorical_map', 'categorical_set'):
+                styled_context_df = audit_df.style
+                st.dataframe(
+                    styled_context_df,
+                    width='stretch'
+                )
+            else:
+                styled_context_df = audit_df.style \
+                    .format("{:.1%}", subset=[feature_name]) \
+                    .background_gradient(cmap='RdYlGn_r', subset=[feature_name], vmin=0, vmax=1)
 
-            st.dataframe(
-                styled_context_df,
-                column_config={
-                    feature_name: st.column_config.ProgressColumn(
-                        f"μ({rule_alias})",
-                        format="%.2f",
-                        min_value=0,
-                        max_value=1,
-                    )
-                },
-                width='stretch'
-            )
+                st.dataframe(
+                    styled_context_df,
+                    column_config={
+                        feature_name: st.column_config.ProgressColumn(
+                            f"μ({rule_alias})",
+                            format="%.2f",
+                            min_value=0,
+                            max_value=1,
+                        )
+                    },
+                    width='stretch'
+                )
 
         # --- Derived Rules Visualization ---
         st.subheader("Derived Rules Overview")
@@ -905,10 +913,17 @@ if st.session_state.base_results is not None:
         if derived_rules:
             derived_cols = [r['name'] for r in derived_rules]
             derived_mu_cols = [f"mu_{c}" for c in derived_cols if f"mu_{c}" in st.session_state.fuzzy_details.columns]
+
             if derived_mu_cols:
                 heatmap_df = st.session_state.fuzzy_details[derived_mu_cols].copy()
+                heatmap_df.insert(
+                    0,
+                    "CaseID",
+                    st.session_state.master_data["CaseID"].values
+                )
                 st.dataframe(
-                    heatmap_df.style.background_gradient(cmap='RdYlGn', vmin=0, vmax=1),
+                    heatmap_df.style.background_gradient(cmap='RdYlGn_r', vmin=0, vmax=1,
+                                                         subset=derived_mu_cols),
                     width='stretch',
                     height=400
                 )
@@ -922,15 +937,18 @@ if st.session_state.base_results is not None:
                     with col2:
                         y_rule = st.selectbox("Y-axis derived rule", derived_mu_cols, index=1)
 
-                    scatter_df = st.session_state.fuzzy_details[[x_rule, y_rule]].copy()
-                    scatter_df['CaseID'] = st.session_state.master_data['CaseID']
-                    scatter_plot = alt.Chart(scatter_df).mark_circle(size=60).encode(
-                        x=alt.X(x_rule, title=x_rule),
-                        y=alt.Y(y_rule, title=y_rule),
-                        color=alt.Color('CaseID', scale=alt.Scale(scheme='turbo')),
-                        tooltip=['CaseID', x_rule, y_rule]
-                    ).interactive()
-                    st.altair_chart(scatter_plot, width='stretch', use_container_width=True)
+                    if x_rule != y_rule:
+                        scatter_df = st.session_state.fuzzy_details[[x_rule, y_rule]].copy()
+                        scatter_df['CaseID'] = st.session_state.master_data['CaseID']
+                        scatter_plot = alt.Chart(scatter_df).mark_circle(size=60).encode(
+                            x=alt.X(x_rule, title=x_rule),
+                            y=alt.Y(y_rule, title=y_rule),
+                            color=alt.Color('CaseID', scale=alt.Scale(scheme='turbo')),
+                            tooltip=['CaseID', x_rule, y_rule]
+                        ).interactive()
+                        st.altair_chart(scatter_plot, width='stretch')
+                    else:
+                        st.warning("Please select different derived rules.")
             else:
                 st.info("Derived rules exist but no computed values are available.")
         else:
@@ -942,17 +960,20 @@ if st.session_state.base_results is not None:
         st.subheader("Sensitivity Analysis (Bump Chart)")
         st.markdown(f"""
         Visualize how the **Priority Ranking** changes when moving the weight ($\\lambda$) 
-        from pure Context Alignment ($\\lambda = 0$) to pure ML Risk ($\\lambda = 1$). 
-        Cases shown were selected for $\\lambda = {lambda_val}$.
+        from pure *Context Alignment* ($\\lambda = 0$) to pure *ML Risk* ($\\lambda = 1$).
         """)
 
         # A. CONTROLS
-        c_ctrl1, c_ctrl2 = st.columns(2)
+        c_ctrl1, c_ctrl2, c_ctrl3 = st.columns(3)
         with c_ctrl1:
             n_partitions = st.slider("Lambda Partitions (Steps)", min_value=2, max_value=10, value=4)
         with c_ctrl2:
             top_n_show = st.slider("Show Top N Cases", min_value=5, max_value=50, value=15,
-                                   help="Filters the cases with the highest average ranking.")
+                                   help="Filters the cases with the highest ranking.")
+        with c_ctrl3:
+            select_by_current_lambda = st.checkbox(f"Select Cases with Current Lambda ($\\lambda = {lambda_val}$)", value=True,
+                                                   help="""Whether the top N cases are selected based on the current lambda value (check) or 
+                                                         based on the average ranks across all lambda partitions (uncheck).""")
 
         # B. DATA PREPARATION
         # Generate exact steps. E.g.: [0.0, 0.25, 0.5, 0.75, 1.0]
@@ -960,19 +981,20 @@ if st.session_state.base_results is not None:
 
         bump_data = []
         for l_step in lambda_steps:
-            temp_df = df[[id_col, "Ri_Global_Risk", "Ci_Context_Score"]].copy()
+            temp_df = df[[id_col, "Ri_Global_Risk", "Ci_Context_Score", "Prioritization_Score "]].copy()
             # Simulated Score
             temp_df["Sim_Score"] = (l_step * temp_df["Ri_Global_Risk"]) + (
                     (1 - l_step) * temp_df["Ci_Context_Score"])
             # Ranking (method='first' breaks ties by order of appearance)
             temp_df["Rank"] = temp_df["Sim_Score"].rank(ascending=False, method='first')
+            temp_df["SelectRank"] = temp_df["Prioritization_Score "].rank(ascending=False, method='first') if select_by_current_lambda else temp_df["Rank"]
             temp_df["Lambda"] = l_step
             bump_data.append(temp_df)
 
         bump_df = pd.concat(bump_data)
 
         # C. FILTERING (TOP N)
-        avg_ranks = bump_df.groupby(id_col)["Rank"].mean().sort_values()
+        avg_ranks = bump_df.groupby(id_col)["SelectRank"].mean().sort_values()
         top_ids = avg_ranks.head(top_n_show).index.tolist()
         filtered_bump_df = bump_df[bump_df[id_col].isin(top_ids)]
 

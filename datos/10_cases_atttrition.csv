@@ -1,0 +1,11 @@
+attrition,age,business_travel,daily_rate,department,distance_from_home,education,education_field,employee_count,employee_number,environment_satisfaction,gender,hourly_rate,job_involvement,job_level,job_role,job_satisfaction,marital_status,monthly_income,monthly_rate,num_companies_worked,over18,over_time,percent_salary_hike,performance_rating,relationship_satisfaction,standard_hours,stock_option_level,total_working_years,training_times_last_year,work_life_balance,years_at_company,years_in_current_role,years_since_last_promotion,years_with_curr_manager
+No,38,Travel_Frequently,888,Human Resources,10,4,Human Resources,1,1563,3,Male,71,3,2,Human Resources,3,Married,6077,14814,3,Y,No,11,3,3,80,0,10,2,3,6,3,1,2
+No,26,Travel_Rarely,991,Research & Development,6,3,Life Sciences,1,686,3,Female,71,3,1,Laboratory Technician,4,Married,2659,17759,1,Y,Yes,13,3,3,80,1,3,2,3,3,2,0,2
+No,37,Travel_Rarely,482,Research & Development,3,3,Other,1,689,3,Male,36,3,3,Manufacturing Director,3,Married,9434,9606,1,Y,No,15,3,3,80,1,10,2,3,10,7,7,8
+No,39,Travel_Rarely,492,Research & Development,12,3,Medical,1,1654,4,Male,66,3,2,Manufacturing Director,2,Married,5295,7693,4,Y,No,21,4,3,80,0,7,3,3,5,4,1,0
+No,50,Travel_Rarely,691,Research & Development,2,3,Medical,1,815,3,Male,64,3,4,Research Director,3,Married,17639,6881,5,Y,No,16,3,4,80,0,30,3,3,4,3,0,3
+Yes,36,Travel_Rarely,660,Research & Development,15,3,Other,1,1052,1,Male,81,3,2,Laboratory Technician,3,Divorced,4834,7858,7,Y,No,14,3,2,80,1,9,3,2,1,0,0,0
+Yes,20,Travel_Frequently,769,Sales,9,3,Marketing,1,1077,4,Female,54,3,1,Sales Representative,4,Single,2323,17205,1,Y,Yes,14,3,2,80,0,2,3,3,2,2,0,2
+Yes,46,Travel_Rarely,669,Sales,9,2,Medical,1,118,3,Male,64,2,3,Sales Executive,4,Single,9619,13596,1,Y,No,16,3,4,80,0,9,3,3,9,8,4,7
+Yes,18,Travel_Frequently,1306,Sales,5,3,Marketing,1,614,2,Male,69,3,1,Sales Representative,2,Single,1878,8059,1,Y,Yes,14,3,4,80,0,0,3,3,0,0,0,0
+Yes,33,Travel_Rarely,1017,Research & Development,25,3,Medical,1,1108,1,Male,55,2,1,Research Scientist,2,Single,2313,2993,4,Y,Yes,20,4,2,80,0,5,0,3,2,2,2,2

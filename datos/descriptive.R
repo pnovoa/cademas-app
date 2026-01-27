@@ -23,7 +23,9 @@ select_diverse_per_class <- function(df, y, n_per_class = 5) {
     ungroup()
 }
 
-# uso
-sample10 <- select_diverse_per_class(df_raw, y = "attrition", n_per_class = 5)
+n_per_classes <- 10
 
-write_csv(sample10, file = "10_cases_atttrition.csv")
+# uso
+sampleN <- select_diverse_per_class(df_raw, y = "attrition", n_per_class = n_per_classes)
+
+write_csv(sampleN, file = paste0(n_per_classes*2, "_cases_atttrition.csv"))

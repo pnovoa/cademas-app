@@ -205,7 +205,7 @@ if st.session_state.base_results is not None:
     # st.markdown("<h1 class='main-header'>Dashboard</h1>", unsafe_allow_html=True)
     st.title("CADEMAS-ML")
 
-    tab1, tab2, tab3, tab_decision, tab4 = st.tabs(["Overview", "Models", "Context", "Decision", "About"])
+    tab1, tab2, tab3, tab_decision, tab_help, tab4 = st.tabs(["Overview", "Models", "Context", "Decision", "Help", "About"])
 
     # --- TAB 1 ---
     with tab1:
@@ -601,18 +601,18 @@ if st.session_state.base_results is not None:
         base = alt.Chart(filtered_bump_df).encode(
             x=alt.X('Lambda:Q',
                     axis=alt.Axis(values=list(lambda_steps), format='.2f', title="Lambda Weight (λ)"),
-                    scale=alt.Scale(domain=[0, 1])
+                    scale=alt.Scale(domain=[-0.05, 1.05])
                     ),
             y=alt.Y('Rank:Q',
                     title='Ranking (1 = Highest Priority)',
-                    scale=alt.Scale(reverse=True, zero=False),  # reverse=True puts 1 at the top
+                    scale=alt.Scale(reverse=True, zero=False, domain=[0.5, filtered_bump_df['Rank'].max() +0.5]),  # reverse=True puts 1 at the top
                     axis=alt.Axis(tickMinStep=1)  # Only integers on Y axis
                     ),
             color=alt.Color(f'{id_col}:N', legend=None)  # Remove side legend to use direct labels
         )
 
         # 2. Line Layer (Smooth interpolation)
-        lines = base.mark_line(interpolate='monotone', strokeWidth=3).encode(
+        lines = base.mark_line(interpolate='monotone', strokeWidth=4).encode(
             tooltip=[
                 alt.Tooltip(id_col, title="ID"),
                 alt.Tooltip("Lambda", format=".2f"),
@@ -623,19 +623,19 @@ if st.session_state.base_results is not None:
 
         # 3. Points Layer (Big circles)
         # Using size=100 (or more) to make them bigger than the line
-        points = base.mark_circle(size=120, opacity=1).encode(
+        points = base.mark_circle(size=130, opacity=1).encode(
             tooltip=[alt.Tooltip(id_col), alt.Tooltip("Rank")]
         )
 
         # 4. Left Labels (Lambda = 0)
-        text_start = base.mark_text(align='right', dx=-12, fontSize=11).encode(
+        text_start = base.mark_text(align='right', dx=-12, fontSize=12).encode(
             text=f'{id_col}:N'
         ).transform_filter(
             (alt.datum.Lambda == 0.0)
         )
 
         # 5. Right Labels (Lambda = 1)
-        text_end = base.mark_text(align='left', dx=12, fontSize=11).encode(
+        text_end = base.mark_text(align='left', dx=12, fontSize=12).encode(
             text=f'{id_col}:N'
         ).transform_filter(
             (alt.datum.Lambda == 1.0)
@@ -646,7 +646,15 @@ if st.session_state.base_results is not None:
 
         st.altair_chart(final_chart, width='stretch', theme="streamlit", height=500)
 
-        st.info(f"Showing the top {len(top_ids)} ranked cases with above-average ranking.")
+        #st.info(f"Showing the top {len(top_ids)} ranked cases with above-average ranking.")
+
+# --- TAB HELP ---
+
+    with tab_help:
+        from help import get_help_markdown
+
+        st.markdown(get_help_markdown())
+
 
 # --- TAB 4 ---
     with tab4:
@@ -664,6 +672,8 @@ if st.session_state.base_results is not None:
             (reference number **PID2023-146575NB-I00**), funded by **MCIU/AEI/10.13039/501100011033** and by **FSE+**.
             """
         )
+
+
 
 else:
     st.title("CADEMAS-ML")

@@ -12,7 +12,16 @@ from animation import render_animated_header
 from h2o.model import ModelBase
 from fuzzy_context import calculate_context_score, get_membership
 
-st.set_page_config(page_title="CADEMAS-ML – Cooperative and Context-Aware Decision Support", layout="wide")
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(APP_DIR, "assets", "cademas.png")
+LOGO_SVG_PATH = os.path.join(APP_DIR, "assets", "cademas_logo.svg")
+MINISTRY_LOGO_PATH = os.path.join(APP_DIR, "assets", "logo_ministerio.jpg")
+
+st.set_page_config(
+    page_title="CADEMAS-ML – Cooperative and Context-Aware Decision Support",
+    page_icon=LOGO_PATH,
+    layout="wide",
+)
 
 custom_css = """
 <style>
@@ -51,14 +60,70 @@ def save_temp_file(uploaded_file):
         return None
 
 
+def load_uploaded_json(uploaded_file):
+    uploaded_file.seek(0)
+    return json.load(uploaded_file)
+
+
+def render_home_tab(results_ready=False):
+    st.subheader("Welcome to CADEMAS-ML, a cooperative and context-aware decision support system.")
+    if results_ready:
+        st.success("Analysis results are ready. Use the result tabs to inspect the outputs.")
+    else:
+        st.info("👈 Upload the required files to start the analysis.")
+    render_animated_header()
+
+
+def render_help_tab():
+    from help import get_help_markdown
+
+    st.markdown(get_help_markdown())
+
+
+def render_about_tab():
+    st.subheader("About")
+
+    st.markdown(
+        """
+        **Authors:**
+        - **Pavel Novoa Hernández** (Universidad de La Laguna, Spain) — pnovoahe@ull.edu.es
+        - David A. Pelta (Universidad de Granada, Spain) — dpelta@ugr.es
+        - Mariia Godz (Universidad de Granada, Spain) — mariiagodz@ugr.es
+
+        This application has been funded by the project:
+        *Study, Analysis and Evaluation of Cooperative Automated Decision-Making Systems (CADEMAS)* \
+        (reference number **PID2023-146575NB-I00**), funded by **MCIU/AEI/10.13039/501100011033** and by **FSE+**.
+
+        [More information](https://modougr.es/index.php/proyecto_cademas/)
+        """
+    )
+    st.image(MINISTRY_LOGO_PATH, width=512)
+
+
+def render_app_title():
+    logo_col, title_col = st.columns([0.08, 0.92], vertical_alignment="center")
+    with logo_col:
+        st.image(LOGO_SVG_PATH, width=64)
+    with title_col:
+        st.title("CADEMAS-ML")
+
+
 # --- 3. SIDEBAR ---
+feature_config = None
+selected_metric = None
+context_configs = []
+selected_context_config = None
+
 with st.sidebar:
-    # st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=50)
     st.title("Configuration")
 
     with st.expander("1. Files and Data", expanded=True):
         json_ml = st.file_uploader("Model Configuration (JSON)", type=['json'])
-        json_context = st.file_uploader("Context Configuration (JSON)", type=['json'])
+        json_context_files = st.file_uploader(
+            "Context Configuration (JSON)",
+            type=['json'],
+            accept_multiple_files=True
+        )
         model_files = st.file_uploader("MOJO Models (.zip)", type=['zip'], accept_multiple_files=True)
         data_file = st.file_uploader("Dataset (.csv)", type=['csv'])
         # ID AUTOGENERADO: No se selecciona columna, se genera "CaseID" automáticamente
@@ -69,9 +134,8 @@ with st.sidebar:
 
 
     with st.expander("2. ML Parameters", expanded=False):
-        selected_metric = None
         if json_ml:
-            feature_config = json.load(json_ml)
+            feature_config = load_uploaded_json(json_ml)
             first_key = list(feature_config.keys())[0]
             metrics = list(feature_config[first_key].get("performance", {}).keys())
             if "selected_metric" not in st.session_state:
@@ -84,6 +148,34 @@ with st.sidebar:
             selected_metric = st.session_state.selected_metric
 
     with st.expander("3. Context Parameters", expanded=False):
+        if json_context_files:
+            for context_file in json_context_files:
+                try:
+                    context_config = load_uploaded_json(context_file)
+                    context_name = context_config.get("context_name") or context_file.name
+                    context_configs.append({
+                        "label": context_name,
+                        "config": context_config,
+                    })
+                except Exception as e:
+                    st.error(f"Could not load context file '{context_file.name}': {e}")
+
+        if context_configs:
+            if st.session_state.get("selected_context_idx", 0) not in range(len(context_configs)):
+                st.session_state.selected_context_idx = 0
+            selected_context_idx = st.selectbox(
+                "Context",
+                range(len(context_configs)),
+                format_func=lambda i: context_configs[i]["label"],
+                key="selected_context_idx"
+            )
+            selected_context_config = context_configs[selected_context_idx]["config"]
+            selected_context_description = selected_context_config.get("description")
+            if selected_context_description:
+                st.caption(selected_context_description)
+        else:
+            st.info("Upload one or more context configuration JSON files.")
+
         if "aggregation_method" not in st.session_state:
             st.session_state.aggregation_method = "average"
         st.selectbox(
@@ -113,7 +205,7 @@ if 'p_label' not in st.session_state: st.session_state.p_label = None
 if run_calc:
     st.session_state["run_triggered"] = True
 if st.session_state.get("run_triggered", False):
-    if feature_config and model_files and data_file and selected_metric and json_context:
+    if feature_config and model_files and data_file and selected_metric and selected_context_config:
         with st.spinner(text="Processing...", show_time=True):
             try:
                 # A. Carga
@@ -123,7 +215,7 @@ if st.session_state.get("run_triggered", False):
                 master_df = master_df.copy()
                 master_df.insert(0, "CaseID", np.arange(1, len(master_df) + 1))
                 st.session_state.master_data = master_df  # Guardar para gráficos
-                context_config = json.load(json_context)
+                context_config = selected_context_config
                 st.session_state.context_config = context_config  # Guardar config
 
                 # B. Pesos ML
@@ -194,6 +286,8 @@ if st.session_state.get("run_triggered", False):
 
 # --- 6. VISUALIZACIÓN ---
 
+render_app_title()
+
 if st.session_state.base_results is not None:
     df = st.session_state.base_results.copy()
     df["Prioritization_Score "] = (lambda_val * df["Ri_Global_Risk"]) + ((1 - lambda_val) * df["Ci_Context_Score"])
@@ -202,10 +296,12 @@ if st.session_state.base_results is not None:
     df["Context_Contribution"] = (1 - lambda_val) * df["Ci_Context_Score"]
     df["Lambda"] = lambda_val
 
-    # st.markdown("<h1 class='main-header'>Dashboard</h1>", unsafe_allow_html=True)
-    st.title("CADEMAS-ML")
+    home_tab, tab1, tab2, tab3, tab_decision, tab_help, tab4 = st.tabs(
+        ["Home", "Overview", "Models", "Context", "Decision", "Help", "About"]
+    )
 
-    tab1, tab2, tab3, tab_decision, tab_help, tab4 = st.tabs(["Overview", "Models", "Context", "Decision", "Help", "About"])
+    with home_tab:
+        render_home_tab(results_ready=True)
 
     # --- TAB 1 ---
     with tab1:
@@ -651,33 +747,24 @@ if st.session_state.base_results is not None:
 # --- TAB HELP ---
 
     with tab_help:
-        from help import get_help_markdown
-
-        st.markdown(get_help_markdown())
+        render_help_tab()
 
 
 # --- TAB 4 ---
     with tab4:
-        st.subheader("About")
-
-        st.markdown(
-            """
-            **Authors:**
-            - **Pavel Novoa Hernández** (Universidad de La Laguna, Spain) — pnovoahe@ull.edu.es
-            - David A. Pelta (Universidad de Granada, Spain) — dpelta@ugr.es
-            - Mariia Godz (Universidad de Granada, Spain) — mariiagodz@ugr.es
-
-            This application has been funded by the project:
-            *Study, Analysis and Evaluation of Cooperative Automated Decision-Making Systems (CADEMAS)* \
-            (reference number **PID2023-146575NB-I00**), funded by **MCIU/AEI/10.13039/501100011033** and by **FSE+**.
-            """
-        )
+        render_about_tab()
 
 
 
 else:
-    st.title("CADEMAS-ML")
-    st.subheader("Welcome to CADEMAS-ML, a cooperative and context-aware decision support system.")
-    st.info("👈 Upload the required files to start the analysis.")
-    render_animated_header()
+    home_tab, tab_help, tab4 = st.tabs(["Home", "Help", "About"])
+
+    with home_tab:
+        render_home_tab()
+
+    with tab_help:
+        render_help_tab()
+
+    with tab4:
+        render_about_tab()
 

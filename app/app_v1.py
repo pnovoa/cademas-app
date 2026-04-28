@@ -39,13 +39,10 @@ st.markdown(custom_css, unsafe_allow_html=True)
 @st.cache_resource
 def init_h2o():
     try:
-        h2o.init()
-        return True
-    except:
-        return False
-
-
-if not init_h2o(): st.stop()
+        h2o.init(max_mem_size="700m", nthreads=1)
+        return None
+    except Exception as e:
+        return str(e)
 
 
 # --- 2. Funciones Lógicas ---
@@ -208,6 +205,16 @@ if st.session_state.get("run_triggered", False):
     if feature_config and model_files and data_file and selected_metric and selected_context_config:
         with st.spinner(text="Processing...", show_time=True):
             try:
+                h2o_error = init_h2o()
+                if h2o_error:
+                    st.session_state["run_triggered"] = False
+                    st.error(
+                        "H2O could not be initialized. The app interface is available, "
+                        "but MOJO model inference requires an H2O runtime."
+                    )
+                    st.exception(RuntimeError(h2o_error))
+                    st.stop()
+
                 # A. Carga
                 data_file.seek(0)
                 master_df = pd.read_csv(data_file)
@@ -239,6 +246,7 @@ if st.session_state.get("run_triggered", False):
                 for i, m_file in enumerate(model_files):
                     if m_file.name not in weights: continue
                     path = save_temp_file(m_file)
+                    hf = None
                     try:
                         mojo = h2o.import_mojo(path)
                         #output = mojo._model_json['output']
@@ -263,7 +271,8 @@ if st.session_state.get("run_triggered", False):
                         temp_results[f"{m_file.name.split('.')[0]}_prob"] = vals
                     finally:
                         if os.path.exists(path): os.remove(path)
-                        h2o.remove(hf)
+                        if hf is not None:
+                            h2o.remove(hf)
                     prog_bar.progress((i + 1) / len(model_files))
 
                 temp_results["Ri_Global_Risk"] = risk_accum
@@ -280,6 +289,7 @@ if st.session_state.get("run_triggered", False):
                 st.success("Computation completed successfully.")
 
             except Exception as e:
+                st.session_state["run_triggered"] = False
                 st.error(f"Error: {e}")
     else:
         st.error("Required input files are missing.")

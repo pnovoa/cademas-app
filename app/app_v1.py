@@ -1,5 +1,6 @@
 from traceback import print_last
 
+import base64
 import streamlit as st
 import h2o
 import pandas as pd
@@ -16,6 +17,15 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(APP_DIR, "assets", "cademas.png")
 LOGO_SVG_PATH = os.path.join(APP_DIR, "assets", "cademas_logo.svg")
 MINISTRY_LOGO_PATH = os.path.join(APP_DIR, "assets", "logo_ministerio.jpg")
+
+
+def image_to_data_uri(image_path):
+    with open(image_path, "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+    extension = os.path.splitext(image_path)[1].lstrip(".").lower()
+    mime_subtype = "jpeg" if extension == "jpg" else extension
+    return f"data:image/{mime_subtype};base64,{encoded_image}"
 
 st.set_page_config(
     page_title="CADEMAS-ML – Cooperative and Context-Aware Decision Support",
@@ -90,11 +100,22 @@ def render_about_tab():
         This application has been funded by the project:
         *Study, Analysis and Evaluation of Cooperative Automated Decision-Making Systems (CADEMAS)* \
         (reference number **PID2023-146575NB-I00**), funded by **MCIU/AEI/10.13039/501100011033** and by **FSE+**.
-
         [More information](https://modougr.es/index.php/proyecto_cademas/)
         """
     )
-    st.image(MINISTRY_LOGO_PATH, width=512)
+    ministry_logo_data_uri = image_to_data_uri(MINISTRY_LOGO_PATH)
+    st.markdown(
+        f"""
+        <a href="https://www.ciencia.gob.es" target="_blank" rel="noopener noreferrer">
+            <img
+                src="{ministry_logo_data_uri}"
+                width="512"
+                alt="Ministerio de Ciencia, Innovación y Universidades"
+            >
+        </a>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_app_title():
@@ -110,6 +131,9 @@ feature_config = None
 selected_metric = None
 context_configs = []
 selected_context_config = None
+aggregation_method = st.session_state.get("aggregation_method", "average")
+lambda_val = st.session_state.get("lambda_val", 0.5)
+run_calc = False
 
 with st.sidebar:
     st.title("Configuration")
@@ -129,9 +153,10 @@ with st.sidebar:
         )
         st.session_state.record_id_col = "CaseID"
 
+    files_ready = bool(json_ml and json_context_files and model_files and data_file)
 
-    with st.expander("2. ML Parameters", expanded=False):
-        if json_ml:
+    if files_ready:
+        with st.expander("2. ML Parameters", expanded=False):
             feature_config = load_uploaded_json(json_ml)
             first_key = list(feature_config.keys())[0]
             metrics = list(feature_config[first_key].get("performance", {}).keys())
@@ -144,8 +169,7 @@ with st.sidebar:
             )
             selected_metric = st.session_state.selected_metric
 
-    with st.expander("3. Context Parameters", expanded=False):
-        if json_context_files:
+        with st.expander("3. Context Parameters", expanded=False):
             for context_file in json_context_files:
                 try:
                     context_config = load_uploaded_json(context_file)
@@ -157,36 +181,41 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"Could not load context file '{context_file.name}': {e}")
 
-        if context_configs:
-            if st.session_state.get("selected_context_idx", 0) not in range(len(context_configs)):
-                st.session_state.selected_context_idx = 0
-            selected_context_idx = st.selectbox(
-                "Context",
-                range(len(context_configs)),
-                format_func=lambda i: context_configs[i]["label"],
-                key="selected_context_idx"
+            if context_configs:
+                if st.session_state.get("selected_context_idx", 0) not in range(len(context_configs)):
+                    st.session_state.selected_context_idx = 0
+                selected_context_idx = st.selectbox(
+                    "Context",
+                    range(len(context_configs)),
+                    format_func=lambda i: context_configs[i]["label"],
+                    key="selected_context_idx"
+                )
+                selected_context_config = context_configs[selected_context_idx]["config"]
+                selected_context_description = selected_context_config.get("description")
+                if selected_context_description:
+                    st.caption(selected_context_description)
+            else:
+                st.info("Upload one or more context configuration JSON files.")
+
+            if "aggregation_method" not in st.session_state:
+                st.session_state.aggregation_method = "average"
+            st.selectbox(
+                "Context aggregation operator",
+                ["average", "minimum (strict)", "product"],
+                key="aggregation_method"
             )
-            selected_context_config = context_configs[selected_context_idx]["config"]
-            selected_context_description = selected_context_config.get("description")
-            if selected_context_description:
-                st.caption(selected_context_description)
-        else:
-            st.info("Upload one or more context configuration JSON files.")
+            aggregation_method = st.session_state.aggregation_method
 
-        if "aggregation_method" not in st.session_state:
-            st.session_state.aggregation_method = "average"
-        st.selectbox(
-            "Context aggregation operator",
-            ["average", "minimum (strict)", "product"],
-            key="aggregation_method"
+        run_calc = st.button("Run analysis", type="primary", width='stretch')
+
+        st.markdown("## Decision Adjustment")
+        lambda_val = st.slider("Lambda (weight)", 0.0, 1.0, 0.5, 0.01, key="lambda_val")
+        st.caption(f"Context contribution: {1 - lambda_val:.0%} | Risk contribution: {lambda_val:.0%}")
+    else:
+        st.info(
+            "Upload the model configuration, context configuration, MOJO models, "
+            "and dataset to unlock the analysis settings."
         )
-        aggregation_method = st.session_state.aggregation_method
-
-    run_calc = st.button("Run analysis", type="primary", width='stretch')
-
-    st.markdown("## Decision Adjustment")
-    lambda_val = st.slider("Lambda (weight)", 0.0, 1.0, 0.5, 0.01)
-    st.caption(f"Context contribution: {1 - lambda_val:.0%} | Risk contribution: {lambda_val:.0%}")
 
 
 # --- 4. ESTADO ---

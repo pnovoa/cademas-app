@@ -153,14 +153,14 @@ Each case is automatically assigned a unique identifier (`CaseID`) by the applic
 
 ## Included Example
 
-The repository includes a ready-to-load example in `example_attrition/`.
+The repository includes a ready-to-load example in [example_attrition/](https://github.com/pnovoa/cademas-app/tree/main/example_attrition).
 It is intended as a practical reference for the input format rather than as domain documentation.
 
 Load the files as follows:
-- **Model Configuration (JSON)**: `example_attrition/models/model_definitions.json`
-- **Context Configuration (JSON)**: one or more files from `example_attrition/context/`, such as `context_crisis.json` and `context_digital_transformation.json`
-- **MOJO Models (.zip)**: the `.zip` model files in `example_attrition/models/`
-- **Dataset (.csv)**: `example_attrition/data/cases_atttrition.csv`
+- **Model Configuration (JSON)**: [model_definitions.json](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/models/model_definitions.json)
+- **Context Configuration (JSON)**: one or more files from [context/](https://github.com/pnovoa/cademas-app/tree/main/example_attrition/context), such as [context_crisis.json](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/context/context_crisis.json) and [context_digital_transformation.json](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/context/context_digital_transformation.json)
+- **MOJO Models (.zip)**: the `.zip` model files in [models/](https://github.com/pnovoa/cademas-app/tree/main/example_attrition/models)
+- **Dataset (.csv)**: [cases_atttrition.csv](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/data/cases_atttrition.csv)
 
 If multiple context JSON files are uploaded, select the desired one in **Context Parameters → Context** before running the analysis.
 

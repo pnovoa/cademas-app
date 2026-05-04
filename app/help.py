@@ -157,7 +157,7 @@ The repository includes a ready-to-load example in [example_attrition/](https://
 It is intended as a practical reference for the input format rather than as domain documentation.
 
 Load the files as follows:
-- **Model Configuration (JSON)**: [model_definitions.json](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/models/model_definitions.json)
+- **Model Configuration (JSON)**: [model_definitions.json](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/model_definitions.json)
 - **Context Configuration (JSON)**: one or more files from [context/](https://github.com/pnovoa/cademas-app/tree/main/example_attrition/context), such as [context_crisis.json](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/context/context_crisis.json) and [context_digital_transformation.json](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/context/context_digital_transformation.json)
 - **MOJO Models (.zip)**: the `.zip` model files in [models/](https://github.com/pnovoa/cademas-app/tree/main/example_attrition/models)
 - **Dataset (.csv)**: [cases_atttrition.csv](https://github.com/pnovoa/cademas-app/blob/main/example_attrition/data/cases_atttrition.csv)

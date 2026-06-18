@@ -178,7 +178,7 @@ def render_help_tab():
 
 
 def render_about_tab():
-    st.subheader("About")
+   # st.subheader("About")
 
     st.markdown(
         """
@@ -186,7 +186,7 @@ def render_about_tab():
         - **Pavel Novoa Hernández** (Universidad de La Laguna, Spain) — pnovoahe@ull.edu.es
         - Mariia Godz (Universidad de Granada, Spain) — mariiagodz@ugr.es
         - David A. Pelta (Universidad de Granada, Spain) — dpelta@ugr.es
-
+        **Funding:**
         This application has been funded by the project:
         *Study, Analysis and Evaluation of Cooperative Automated Decision-Making Systems (CADEMAS)* \
         (reference number **PID2023-146575NB-I00**), funded by **MCIU/AEI/10.13039/501100011033** and by **FSE+**.

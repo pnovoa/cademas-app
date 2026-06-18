@@ -140,11 +140,12 @@ def load_uploaded_json(uploaded_file):
 
 def render_home_tab(results_ready=False):
     st.markdown(
-        "Welcome to **CADEMAS-ML**, a cooperative and context-aware decision support system."
+        """
+        Welcome to **CADEMAS-ML**, a cooperative and context-aware decision support
+        system <a href="#ref-1">[1]</a>, <a href="#ref-2">[2]</a>.
+        """,
+        unsafe_allow_html=True,
     )
-
-    if not results_ready:
-        st.info("Upload the required files in the sidebar to start the analysis.")
 
     anim_col, text_col = st.columns([1.35, 1], gap="large")
     with anim_col:
@@ -152,7 +153,7 @@ def render_home_tab(results_ready=False):
     with text_col:
         st.markdown(
             """
-            **How it works**
+            ### How it works
 
             CADEMAS-ML combines machine learning predictions with expert-defined
             context rules to prioritize cases in a transparent and auditable way.
@@ -169,6 +170,31 @@ def render_home_tab(results_ready=False):
                (sensitivity analysis as λ varies).
             """
         )
+
+    st.divider()
+    st.markdown(
+        """
+        <p id="ref-1">
+        <strong>[1]</strong> Novoa-Hernández, P., Pelta, D. A., Godz, M.,
+        Verdegay, J. L., &amp; Buendia-Carrillo, D. (2026).
+        CADEMAS – A Framework for Cooperative Automated Decision-Making Systems.
+        In <em>2026 IEEE Conference on Artificial Intelligence (CAI)</em>
+        (pp. 756–761). IEEE.
+        <a href="https://doi.org/10.1109/cai68641.2026.11536392" target="_blank" rel="noopener noreferrer">
+        https://doi.org/10.1109/cai68641.2026.11536392</a>
+        </p>
+
+        <p id="ref-2">
+        <strong>[2]</strong> Godz, M., Novoa-Hernández, P., &amp; Pelta, D. A.
+        (2026). A Cooperative and Context-Aware Approach for Employee Attrition
+        Prevention. In <em>Communications in Computer and Information Science</em>
+        (pp. 203–217). Springer Nature Switzerland.
+        <a href="https://doi.org/10.1007/978-3-032-29000-7_15" target="_blank" rel="noopener noreferrer">
+        https://doi.org/10.1007/978-3-032-29000-7_15</a>
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_help_tab():
@@ -233,7 +259,11 @@ with st.sidebar:
             "Analysis results are ready. Use the result tabs to inspect the outputs."
         )
 
-    st.title("Configuration")
+    header_col, upload_hint_col = st.columns([0.9, 0.1], vertical_alignment="center")
+    with header_col:
+        st.title("Configuration")
+    with upload_hint_col:
+        upload_hint = st.empty()
 
     with st.expander("1. Files and Data", expanded=True):
         json_ml = st.file_uploader("Model Configuration (JSON)", type=['json'])
@@ -243,17 +273,31 @@ with st.sidebar:
             accept_multiple_files=True
         )
         model_files = st.file_uploader("MOJO Models (.zip)", type=['zip'], accept_multiple_files=True)
-        data_file = st.file_uploader("Dataset (.csv)", type=['csv'])
-        # Case identifier: use Case_ID or ID from CSV when present; otherwise generate CaseID.
-        st.info(
-            "Cases are identified by a 'Case_ID' or 'ID' column when present; "
-            "otherwise a consecutive 'CaseID' is assigned automatically. "
-            "Identifier columns are excluded from model inference. "
-            "CSV files may use comma, semicolon, or tab delimiters."
+        data_file = st.file_uploader(
+            "Dataset (.csv)",
+            type=['csv'],
+            help=(
+                "Cases are identified by a 'Case_ID' or 'ID' column when present; "
+                "otherwise a consecutive 'CaseID' is assigned automatically. "
+                "Identifier columns are excluded from model inference. "
+                "CSV files may use comma, semicolon, or tab delimiters."
+            ),
         )
         st.session_state.record_id_col = CASE_ID_COL
 
     files_ready = bool(json_ml and json_context_files and model_files and data_file)
+    if not files_ready:
+        upload_hint.markdown(
+            """
+            <div style="text-align: right;">
+                <span
+                    title="Upload required files to unlock settings."
+                    style="cursor: help; color: #64748b; font-size: 1rem;"
+                >&#9432;</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     if files_ready:
         with st.expander("2. ML Parameters", expanded=False):
@@ -311,11 +355,6 @@ with st.sidebar:
         st.markdown("## Decision Adjustment")
         lambda_val = st.slider("Lambda (weight)", 0.0, 1.0, 0.5, 0.01, key="lambda_val")
         st.caption(f"Context contribution: {1 - lambda_val:.0%} | Risk contribution: {lambda_val:.0%}")
-    else:
-        st.info(
-            "Upload the model configuration, context configuration, MOJO models, "
-            "and dataset to unlock the analysis settings."
-        )
 
 
 # --- 4. ESTADO ---

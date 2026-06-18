@@ -147,7 +147,8 @@ Requirements:
 - Features **do not need to be identical across models**.
 - The dataset may contain *extra variables* not used by any model or rule.
 
-Each case is automatically assigned a unique identifier (`CaseID`) by the application.
+- Optionally include a `Case_ID` or `ID` column to identify cases; otherwise the application assigns a consecutive `CaseID`. Identifier columns are excluded from model inference.
+- CSV files may use **comma**, **semicolon**, or **tab** delimiters (auto-detected on upload).
 
 ---
 
@@ -207,7 +208,7 @@ CADEMAS-ML supports:
 - Robust decisions under changing organizational contexts,
 - Full transparency: every score can be decomposed into ML and context components.
 
-Use the **Decision** tab to explore how rankings evolve as λ changes.
+Use the **Robustness** tab to explore how rankings evolve as λ changes.
 
 ---
 """

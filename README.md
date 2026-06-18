@@ -4,6 +4,19 @@ Streamlit application for cooperative and context-aware decision support.
 
 ### Run Locally
 
+Create and activate a virtual environment (Python 3.11):
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+H2O model loading requires Java 17+. On macOS: `brew install openjdk@17`.
+
+Run the app:
+
 ```bash
 streamlit run app/app_v1.py
 ```

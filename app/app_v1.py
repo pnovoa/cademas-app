@@ -1,6 +1,7 @@
 from traceback import print_last
 
 import base64
+import io
 import streamlit as st
 import h2o
 import pandas as pd
@@ -9,6 +10,8 @@ import json
 import os
 import tempfile
 import altair as alt
+from matplotlib import cm
+from matplotlib.colors import to_hex
 from animation import render_animated_header
 from h2o.model import ModelBase
 from fuzzy_context import calculate_context_score, get_membership
@@ -17,6 +20,50 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(APP_DIR, "assets", "cademas.png")
 LOGO_SVG_PATH = os.path.join(APP_DIR, "assets", "cademas_logo.svg")
 MINISTRY_LOGO_PATH = os.path.join(APP_DIR, "assets", "logo_ministerio.jpg")
+
+CASE_ID_COL = "CaseID"
+CASE_ID_SOURCE_COLUMNS = ("Case_ID", "ID")
+CSV_DELIMITERS = (",", ";", "\t")
+
+
+def read_uploaded_csv(file) -> pd.DataFrame:
+    file.seek(0)
+    text = file.read().decode("utf-8-sig")
+    file.seek(0)
+
+    best_df = None
+    max_cols = 0
+
+    for sep in CSV_DELIMITERS:
+        try:
+            df = pd.read_csv(io.StringIO(text), sep=sep)
+        except (pd.errors.ParserError, ValueError):
+            continue
+        if len(df.columns) > max_cols and len(df) > 0:
+            max_cols = len(df.columns)
+            best_df = df
+
+    if best_df is None:
+        raise ValueError(
+            "Could not parse the dataset. Supported delimiters: comma, semicolon, and tab."
+        )
+
+    return best_df
+
+
+def prepare_dataset_case_ids(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for source_col in CASE_ID_SOURCE_COLUMNS:
+        if source_col in df.columns:
+            df.insert(0, CASE_ID_COL, df[source_col].values)
+            return df.drop(columns=[source_col])
+
+    df.insert(0, CASE_ID_COL, np.arange(1, len(df) + 1))
+    return df
+
+
+def model_features_df(df: pd.DataFrame, id_col: str = CASE_ID_COL) -> pd.DataFrame:
+    return df.drop(columns=[id_col])
 
 
 def image_to_data_uri(image_path):
@@ -38,6 +85,25 @@ custom_css = """
     .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
     font-size:11pt;
     align-items:center;
+    }
+    [data-testid="stMetricLabel"] {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        overflow-wrap: anywhere;
+        line-height: 1.3;
+        max-width: 100%;
+    }
+    [data-testid="stMetricLabel"] p {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        overflow-wrap: anywhere;
+        line-height: 1.3;
+    }
+    [data-testid="stMetric"] {
+        align-items: flex-start;
+        min-height: 5.5rem;
     }
 </style>
 """
@@ -73,12 +139,36 @@ def load_uploaded_json(uploaded_file):
 
 
 def render_home_tab(results_ready=False):
-    st.subheader("Welcome to CADEMAS-ML, a cooperative and context-aware decision support system.")
-    if results_ready:
-        st.success("Analysis results are ready. Use the result tabs to inspect the outputs.")
-    else:
-        st.info("👈 Upload the required files to start the analysis.")
-    render_animated_header()
+    st.markdown(
+        "Welcome to **CADEMAS-ML**, a cooperative and context-aware decision support system."
+    )
+
+    if not results_ready:
+        st.info("Upload the required files in the sidebar to start the analysis.")
+
+    anim_col, text_col = st.columns([1.35, 1], gap="large")
+    with anim_col:
+        render_animated_header()
+    with text_col:
+        st.markdown(
+            """
+            **How it works**
+
+            CADEMAS-ML combines machine learning predictions with expert-defined
+            context rules to prioritize cases in a transparent and auditable way.
+
+            1. **Upload four inputs** in the sidebar: model configuration (JSON),
+               context configuration (JSON), MOJO models (.zip), and the case dataset (CSV).
+            2. **Run the analysis** to compute, for each case:
+               - **Global ML Risk (Ri)** — weighted ensemble of model probabilities
+               - **Context Alignment (Ci)** — fuzzy evaluation of contextual rules
+            3. **Adjust λ** in the sidebar to balance ML risk and context alignment
+               into a single **Prioritization Score**:
+               λ · Ri + (1 − λ) · Ci.
+            4. **Explore the results** in Overview, Models, Context, and **Robustness**
+               (sensitivity analysis as λ varies).
+            """
+        )
 
 
 def render_help_tab():
@@ -136,6 +226,11 @@ lambda_val = st.session_state.get("lambda_val", 0.5)
 run_calc = False
 
 with st.sidebar:
+    if st.session_state.get("base_results") is not None:
+        st.success(
+            "Analysis results are ready. Use the result tabs to inspect the outputs."
+        )
+
     st.title("Configuration")
 
     with st.expander("1. Files and Data", expanded=True):
@@ -147,11 +242,14 @@ with st.sidebar:
         )
         model_files = st.file_uploader("MOJO Models (.zip)", type=['zip'], accept_multiple_files=True)
         data_file = st.file_uploader("Dataset (.csv)", type=['csv'])
-        # ID AUTOGENERADO: No se selecciona columna, se genera "CaseID" automáticamente
+        # Case identifier: use Case_ID or ID from CSV when present; otherwise generate CaseID.
         st.info(
-            "Each case is automatically assigned a unique identifier named 'CaseID'."
+            "Cases are identified by a 'Case_ID' or 'ID' column when present; "
+            "otherwise a consecutive 'CaseID' is assigned automatically. "
+            "Identifier columns are excluded from model inference. "
+            "CSV files may use comma, semicolon, or tab delimiters."
         )
-        st.session_state.record_id_col = "CaseID"
+        st.session_state.record_id_col = CASE_ID_COL
 
     files_ready = bool(json_ml and json_context_files and model_files and data_file)
 
@@ -246,11 +344,9 @@ if st.session_state.get("run_triggered", False):
 
                 # A. Carga
                 data_file.seek(0)
-                master_df = pd.read_csv(data_file)
-                # AUTOGENERAR ID
-                master_df = master_df.copy()
-                master_df.insert(0, "CaseID", np.arange(1, len(master_df) + 1))
-                st.session_state.master_data = master_df  # Guardar para gráficos
+                master_df = prepare_dataset_case_ids(read_uploaded_csv(data_file))
+                st.session_state.master_data = master_df
+                model_df = model_features_df(master_df)
                 context_config = selected_context_config
                 st.session_state.context_config = context_config  # Guardar config
 
@@ -286,7 +382,7 @@ if st.session_state.get("run_triggered", False):
                         #if response in input_cols:
                         #    input_cols.remove(response)
                         # Subconjunto seguro del master dataset
-                        hf = h2o.H2OFrame(master_df)
+                        hf = h2o.H2OFrame(model_df)
                         preds = mojo.predict(hf).as_data_frame()
                         print(f"Columns: {preds.columns}")
                         p_col = 'p1' if 'p1' in preds.columns else preds.columns[-1]
@@ -335,8 +431,8 @@ if st.session_state.base_results is not None:
     df["Context_Contribution"] = (1 - lambda_val) * df["Ci_Context_Score"]
     df["Lambda"] = lambda_val
 
-    home_tab, tab1, tab2, tab3, tab_decision, tab_help, tab4 = st.tabs(
-        ["Home", "Overview", "Models", "Context", "Decision", "Help", "About"]
+    home_tab, tab1, tab2, tab3, tab_robustness, tab_help, tab4 = st.tabs(
+        ["Home", "Overview", "Models", "Context", "Robustness", "Help", "About"]
     )
 
     with home_tab:
@@ -344,13 +440,22 @@ if st.session_state.base_results is not None:
 
     # --- TAB 1 ---
     with tab1:
-        c01, c0, c1, c2, c3, c4 = st.columns(6)
-        c01.metric("Positive label", f"{st.session_state.p_label}")
-        c0.metric(label="Cases (n)", value=f"{len(df['Prioritization_Score '])}")
-        c1.metric(label="Avg. Prior. Score", value=f"{df['Prioritization_Score '].mean():.1%}")
-        c2.metric("Avg. Global Risk (Ri)", f"{df['Ri_Global_Risk'].mean():.1%}")
-        c3.metric("Avg. Context Align. (Ci)", f"{df['Ci_Context_Score'].mean():.1%}")
-        c4.metric("High Priority Cases (> 0.75)", len(df[df["Prioritization_Score "] > 0.75]))
+        overview_metrics = [
+            ("Positive label", f"{st.session_state.p_label}"),
+            ("Number of cases", f"{len(df['Prioritization_Score '])}"),
+            ("Average Prioritization Score", f"{df['Prioritization_Score '].mean():.1%}"),
+            ("Average Global Risk (Ri)", f"{df['Ri_Global_Risk'].mean():.1%}"),
+            ("Average Context Alignment (Ci)", f"{df['Ci_Context_Score'].mean():.1%}"),
+            (
+                "High Priority Cases (> 0.75)",
+                len(df[df["Prioritization_Score "] > 0.75]),
+            ),
+        ]
+        metric_row_1 = st.columns(3)
+        metric_row_2 = st.columns(3)
+        for col, (label, value) in zip([*metric_row_1, *metric_row_2], overview_metrics):
+            with col:
+                st.metric(label=label, value=value)
 
         st.divider()
 
@@ -433,6 +538,19 @@ if st.session_state.base_results is not None:
 
     # --- TAB 2 ---
     with tab2:
+        st.markdown("""
+        This view presents the **machine learning layer** of the prioritization pipeline.
+        It shows how the uploaded MOJO models are weighted and combined into a single
+        global risk score (**Ri**) that feeds the final decision.
+
+        Two sections are included:
+
+        - **Model Weights** — contribution weight ($W_i$) of each model, derived from the
+          performance metric selected in the sidebar.
+        - **ADM Risk Probabilities** — per-case risk probabilities predicted by each model,
+          together with the weighted **Global ML Risk (Ri)** aggregated across all models.
+        """)
+
         st.subheader("Model Weights")
         if st.session_state.ml_details:
             weights = st.session_state.ml_details["weights"]
@@ -478,6 +596,23 @@ if st.session_state.base_results is not None:
 
     # --- TAB 3 (Visualización Difusa con Altair) ---
     with tab3:
+        st.markdown("""
+        This view presents the **contextual reasoning layer** of the prioritization pipeline.
+        It shows how expert-defined fuzzy rules are applied to each case and aggregated into
+        the **Context Alignment** score (**Ci**) that complements the ML risk.
+
+        Four sections are included:
+
+        - **Membership Functions** — inspect how a selected atomic rule maps input values to
+          membership degrees ($\\mu$), overlaid on the case distribution.
+        - **Numerical Audit** — per-case raw feature values and computed membership degrees
+          for the selected rule.
+        - **Derived Rules Overview** — membership values of composite rules and the resulting
+          **Context Alignment** score across all cases.
+        - **Scatterplot of Derived Rules** — explore the relationship between two derived
+          rules, colored by context alignment (when applicable).
+        """)
+
         st.subheader("Membership Functions")
 
         # 1. Selector de Regla Inteligente
@@ -686,15 +821,28 @@ if st.session_state.base_results is not None:
             st.info("No derived rules defined in the context configuration.")
 
 
-    # --- NUEVO TAB: DECISION (MEJORADO) ---
-    with tab_decision:
-        st.subheader("Sensitivity Analysis (Bump Chart)")
-        st.markdown(f"""
-        Visualize how the **Priority Ranking** changes when moving the weight ($\\lambda$) 
-        from pure *Context Alignment* ($\\lambda = 0$) to pure *ML Risk* ($\\lambda = 1$).
+    # --- TAB: ROBUSTNESS ---
+    with tab_robustness:
+        id_col = "CaseID"
+
+        st.markdown("""
+        This analysis evaluates how **stable case rankings** remain when the decision weight
+        $\\lambda$ is varied from pure *Context Alignment* ($\\lambda = 0$) to pure *ML Risk*
+        ($\\lambda = 1$).
+
+        Three complementary views are provided:
+
+        - **Bump Chart** — how each case's priority rank shifts across $\\lambda$ steps.
+        - **Ranks Box Plot** — distribution of ranks per alternative over the same sweep.
+        - **Rank Acceptability Indices** — relative frequency of each alternative occupying
+          each rank position.
+
+        Use **Settings** to control the $\\lambda$ sweep granularity, how many cases are
+        displayed, and whether case selection follows the current sidebar $\\lambda$ or the
+        average rank across all sweep steps.
         """)
 
-        # A. CONTROLS
+        st.subheader("Settings")
         c_ctrl1, c_ctrl2, c_ctrl3 = st.columns(3)
         with c_ctrl1:
             n_partitions = st.slider("Lambda Partitions (Steps)", min_value=2, max_value=10, value=4)
@@ -706,7 +854,7 @@ if st.session_state.base_results is not None:
                                                    help="""Whether the top N cases are selected based on the current lambda value (check) or 
                                                          based on the average ranks across all lambda partitions (uncheck).""")
 
-        # B. DATA PREPARATION
+        # DATA PREPARATION
         # Generate exact steps. E.g.: [0.0, 0.25, 0.5, 0.75, 1.0]
         lambda_steps = np.linspace(0, 1, n_partitions + 1)
 
@@ -729,21 +877,46 @@ if st.session_state.base_results is not None:
         top_ids = avg_ranks.head(top_n_show).index.tolist()
         filtered_bump_df = bump_df[bump_df[id_col].isin(top_ids)]
 
+        rank_stats = filtered_bump_df.groupby(id_col)["Rank"].agg(
+            median="median",
+            q1=lambda s: s.quantile(0.25),
+            q3=lambda s: s.quantile(0.75),
+        )
+        rank_stats["iqr"] = rank_stats["q3"] - rank_stats["q1"]
+        rank_order = (
+            rank_stats.sort_values(["median", "iqr"], ascending=[True, True])
+            .index.tolist()
+        )
+
+        decision_grid_color = "#D3D3D3"
+
+        case_color = alt.Color(
+            f"{id_col}:N",
+            legend=None,
+            scale=alt.Scale(domain=rank_order),
+        )
+
         # D. ALTAIR CHART LAYERS
+
+        case_labels = filtered_bump_df[id_col].astype(str).unique()
+        max_label_len = max(len(label) for label in case_labels)
+        x_pad = max(0.1, min(0.4, 0.06 + max_label_len * 0.012))
+        chart_side_padding = int(min(200, max(55, max_label_len * 7 + 24)))
+        label_dx = int(max(12, min(40, 8 + max_label_len * 1.5)))
 
         # 1. Base Chart (Define common axes)
         # Note: On the X axis we force 'values' to show only the exact partitions.
         base = alt.Chart(filtered_bump_df).encode(
             x=alt.X('Lambda:Q',
                     axis=alt.Axis(values=list(lambda_steps), format='.2f', title="Lambda Weight (λ)"),
-                    scale=alt.Scale(domain=[-0.05, 1.05])
+                    scale=alt.Scale(domain=[-x_pad, 1 + x_pad])
                     ),
             y=alt.Y('Rank:Q',
                     title='Ranking (1 = Highest Priority)',
                     scale=alt.Scale(reverse=True, zero=False, domain=[0.5, filtered_bump_df['Rank'].max() +0.5]),  # reverse=True puts 1 at the top
                     axis=alt.Axis(tickMinStep=1)  # Only integers on Y axis
                     ),
-            color=alt.Color(f'{id_col}:N', legend=None)  # Remove side legend to use direct labels
+            color=case_color,
         )
 
         # 2. Line Layer (Smooth interpolation)
@@ -763,25 +936,137 @@ if st.session_state.base_results is not None:
         )
 
         # 4. Left Labels (Lambda = 0)
-        text_start = base.mark_text(align='right', dx=-12, fontSize=12).encode(
+        text_start = base.mark_text(align='right', dx=-label_dx, fontSize=12).encode(
             text=f'{id_col}:N'
         ).transform_filter(
             (alt.datum.Lambda == 0.0)
         )
 
         # 5. Right Labels (Lambda = 1)
-        text_end = base.mark_text(align='left', dx=12, fontSize=12).encode(
+        text_end = base.mark_text(align='left', dx=label_dx, fontSize=12).encode(
             text=f'{id_col}:N'
         ).transform_filter(
             (alt.datum.Lambda == 1.0)
         )
 
         # Combine everything
-        final_chart = (lines + points + text_start + text_end).interactive()
+        final_chart = (
+            (lines + points + text_start + text_end)
+            .interactive()
+            .configure_view(strokeWidth=0, clip=False)
+            .configure(padding={"left": chart_side_padding, "right": chart_side_padding})
+        )
 
+        st.subheader("Bump Chart")
+        st.caption(
+            "Priority ranking trajectories as $\\lambda$ moves from context-driven ($\\lambda = 0$) "
+            "to risk-driven ($\\lambda = 1$) decision-making."
+        )
         st.altair_chart(final_chart, width='stretch', theme="streamlit", height=500)
 
-        #st.info(f"Showing the top {len(top_ids)} ranked cases with above-average ranking.")
+        st.subheader("Ranks Box Plot")
+        st.caption(
+            "Distribution of priority rankings per alternative across all λ partition steps."
+        )
+        box_chart = (
+            alt.Chart(filtered_bump_df)
+            .mark_boxplot(
+                extent="min-max",
+                size=40,
+                box=alt.MarkConfig(stroke="black"),
+                median=alt.MarkConfig(stroke="black"),
+            )
+            .encode(
+                x=alt.X(
+                    f"{id_col}:N",
+                    title="Alternative (Case ID)",
+                    sort=rank_order,
+                ),
+                y=alt.Y(
+                    "Rank:Q",
+                    title="Ranking (1 = Highest Priority)",
+                    scale=alt.Scale(reverse=True, zero=False),
+                    axis=alt.Axis(
+                        tickMinStep=1,
+                        grid=True,
+                        gridColor=decision_grid_color,
+                    ),
+                ),
+                color=case_color,
+                tooltip=[id_col, alt.Tooltip("Rank", title="Rank")],
+            )
+        )
+        st.altair_chart(box_chart, width="stretch", theme="streamlit", height=400)
+
+        n_steps = len(lambda_steps)
+        rai_df = (
+            filtered_bump_df.groupby([id_col, "Rank"])
+            .size()
+            .reset_index(name="count")
+        )
+        rai_df["frequency"] = rai_df["count"] / n_steps
+        rai_df["freq_label"] = rai_df["frequency"].map(lambda x: f"{x:.1f}")
+
+        rai_color_range = [to_hex(cm.RdYlGn_r(v)) for v in np.linspace(0, 1, 9)]
+
+        st.subheader("Rank Acceptability Indices")
+        st.caption(
+            "Relative frequency of each alternative occupying a given rank as λ varies."
+        )
+        rai_axis = alt.Axis(
+            grid=True,
+            gridColor="black",
+            gridDash=[1, 3],
+            tickBand="extent",
+        )
+        rai_rect = (
+            alt.Chart(rai_df)
+            .mark_rect()
+            .encode(
+                x=alt.X(
+                    f"{id_col}:O",
+                    title="Alternative (Case ID)",
+                    sort=rank_order,
+                    axis=rai_axis,
+                ),
+                y=alt.Y(
+                    "Rank:O",
+                    title="Rank",
+                    sort=alt.SortOrder("ascending"),
+                    axis=rai_axis,
+                ),
+                color=alt.Color(
+                    "frequency:Q",
+                    title="Relative Frequency",
+                    scale=alt.Scale(domain=[0, 1], range=rai_color_range),
+                    legend=alt.Legend(
+                        orient="top",
+                        direction="horizontal",
+                        titleOrient="top",
+                        gradientLength=300,
+                    ),
+                ),
+                tooltip=[
+                    id_col,
+                    alt.Tooltip("Rank", title="Rank"),
+                    alt.Tooltip("frequency", title="Relative Frequency", format=".1%"),
+                    alt.Tooltip("count", title="Occurrences"),
+                ],
+            )
+        )
+        rai_text = (
+            alt.Chart(rai_df)
+            .mark_text(color="black", fontSize=10)
+            .encode(
+                x=alt.X(f"{id_col}:O", sort=rank_order),
+                y=alt.Y("Rank:O", sort=alt.SortOrder("ascending")),
+                text="freq_label:N",
+            )
+        )
+        rai_chart = alt.layer(rai_rect, rai_text).properties(
+            height=max(200, rai_df["Rank"].nunique() * 25)
+        )
+        st.altair_chart(rai_chart, width="stretch", theme="streamlit")
 
 # --- TAB HELP ---
 

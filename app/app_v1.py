@@ -188,6 +188,7 @@ def render_about_tab():
         - David A. Pelta (Universidad de Granada, Spain) — dpelta@ugr.es
         
         **Funding:**
+        
         This application has been funded by the project:
         *Study, Analysis and Evaluation of Cooperative Automated Decision-Making Systems (CADEMAS)* \
         (reference number **PID2023-146575NB-I00**), funded by **MCIU/AEI/10.13039/501100011033** and by **FSE+**.

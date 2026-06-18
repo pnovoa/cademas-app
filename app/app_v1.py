@@ -184,8 +184,8 @@ def render_about_tab():
         """
         **Authors:**
         - **Pavel Novoa Hernández** (Universidad de La Laguna, Spain) — pnovoahe@ull.edu.es
-        - David A. Pelta (Universidad de Granada, Spain) — dpelta@ugr.es
         - Mariia Godz (Universidad de Granada, Spain) — mariiagodz@ugr.es
+        - David A. Pelta (Universidad de Granada, Spain) — dpelta@ugr.es
 
         This application has been funded by the project:
         *Study, Analysis and Evaluation of Cooperative Automated Decision-Making Systems (CADEMAS)* \

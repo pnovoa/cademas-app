@@ -206,6 +206,40 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# LaTeX auxiliary and build files
+*.aux
+*.bbl
+*.blg
+*.bcf
+*.brf
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
+*.out
+*.toc
+*.lof
+*.lot
+*.loa
+*.nav
+*.snm
+*.vrb
+*.xdv
+*.dvi
+*.run.xml
+*.idx
+*.ilg
+*.ind
+*.glg
+*.glo
+*.gls
+*.acn
+*.acr
+*.alg
+*.ist
+*-eps-converted-to.pdf
+*_minted*/
+
 # OS/editor metadata
 .DS_Store
 .idea/

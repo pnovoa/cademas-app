@@ -114,7 +114,7 @@ $^{2}$ \quad Dept. Computer Science and Artificial Intelligence, Universidad de 
 %\conference{} % An extended version of a conference paper
 
 % Abstract (Do not insert blank lines, i.e. \\) 
-\abstract{Automated decision-making systems are increasingly used in prediction and classification tasks. However, their outputs are often interpreted without considering the organizational, operational, or strategic context in which decisions are made. This paper presents CADEMAS-ML, a software tool for the design and analysis of cooperative and context-aware automated decision-making systems. The proposed tool integrates multiple predictive models with fuzzy context modeling to support case prioritization in domains where machine learning predictions must be complemented by expert-defined contextual criteria. CADEMAS-ML assigns weights to predictive models according to selected performance indicators and aggregates their outputs into a global risk score. In parallel, the tool evaluates contextual suitability using configurable fuzzy membership functions, categorical mappings, derived rules, and aggregation operators. This approach enables decision-makers to represent vague, gradual, and scenario-dependent preferences in a flexible manner. The final prioritization score combines the predictive risk component and the contextual suitability component through an adjustable trade-off parameter. The capabilities of the tool are illustrated through an employee attrition classification case study. Several departmental predictive models are combined with alternative decision contexts, including economic crisis and digital transformation scenarios. The results show that identical predictive risks may lead to different prioritization outcomes depending on the contextual assumptions adopted. This behavior improves the transparency and adaptability of cooperative decision-making processes. CADEMAS-ML provides a practical framework that connects predictive analytics, fuzzy reasoning, and human-configurable decision policies for the development of advanced decision-support systems.}
+\abstract{Automated decision-making systems increasingly operate as part of larger decision ecosystems rather than as isolated models. However, their outputs are often interpreted without considering the organizational, operational, or strategic context in which decisions are made. This paper presents CADEMAS-ML, a software tool that operationalizes the CADEMAS framework for a machine-learning-based class of cooperative and context-aware automated decision-making systems. While CADEMAS is a general conceptual framework for coordinating heterogeneous automated decision units, CADEMAS-ML specializes this idea to settings in which the contributing units are predictive models and the operational goal is case prioritization. The tool assigns weights to predictive components according to selected performance indicators and aggregates their outputs into a global risk score. In parallel, it evaluates contextual suitability using configurable fuzzy membership functions, categorical mappings, derived rules, and aggregation operators. This approach enables decision-makers to represent vague, gradual, and scenario-dependent preferences in a flexible manner. The final prioritization score combines the predictive risk component and the contextual suitability component through an adjustable trade-off parameter. The capabilities of the tool are illustrated through an employee attrition case study that instantiates, rather than redefines, CADEMAS in an ML workflow. Several departmental predictive models are combined with alternative decision contexts, including economic crisis and digital transformation scenarios. The results show that identical predictive risks may lead to different prioritization outcomes depending on the contextual assumptions adopted. CADEMAS-ML therefore provides a practical bridge between cooperative ADM theory, fuzzy context modeling, and auditable decision-support software.}
 
 % Keywords
 \keyword{automated decision-making systems; fuzzy decision making; context-aware decision support; machine learning; prioritization} 
@@ -124,187 +124,365 @@ $^{2}$ \quad Dept. Computer Science and Artificial Intelligence, Universidad de 
 
 \section{Introduction}\label{sec:intro}
 
-Automated decision-making (ADM) systems based on machine learning (ML) have become an integral part of modern organizations. Predictive and classification models are routinely used to support tasks such as credit scoring, fraud detection, medical triage, customer churn analysis, and human-resource management. Their adoption has increased substantially in recent years due to their ability to process large volumes of data and identify patterns that support operational and strategic decisions.
+Automated decision-making (ADM) systems have become an integral part of modern organizations. Following the broad understanding of ADM as computational processes that produce ratings, recommendations, decisions, predictions, or related outputs from data and predefined objectives \citep{EIP2022}, such systems may include machine-learning classifiers, rule-based procedures, optimization models, simulation components, or other algorithmic decision units. In practice, predictive and classification models are among the most common instantiations, supporting tasks such as credit scoring, fraud detection, medical triage, customer churn analysis, and human-resource management.
 
-Despite these advances, an important limitation remains. The outputs generated by ML models, such as class probabilities or risk scores, are often interpreted in isolation from the organizational environment in which decisions are ultimately made \citep{Tariq2024,Varga2023}. In practice, a high probability of an adverse event rarely provides sufficient guidance for action. The appropriate response depends on contextual factors such as organizational priorities, resource constraints, departmental objectives, and prevailing strategic conditions. As a result, identical predictive outcomes may lead to different decisions under different circumstances.
+Despite these advances, an important limitation remains. The outputs generated by ADM units, such as recommendations, ratings, class probabilities, or risk scores, are often interpreted in isolation from the organizational environment in which decisions are ultimately made \citep{Tariq2024,Varga2023}. In practice, a technically plausible automated output rarely provides sufficient guidance for action. The appropriate response depends on contextual factors such as organizational priorities, resource constraints, departmental objectives, regulatory constraints, and prevailing strategic conditions. As a result, identical automated assessments may lead to different decisions under different circumstances.
 
-This observation highlights the cooperative nature of real-world decision-making \citep{Tariq2024}. Decisions are seldom based on a single predictive model. Organizations frequently rely on multiple models developed for different departments, objectives, or stakeholder groups. Their outputs must therefore be integrated into a coherent and comparable assessment of risk. At the same time, domain experts contribute contextual knowledge that cannot always be represented through precise numerical rules. Such knowledge is often expressed through gradual concepts and linguistic assessments that reflect uncertainty, preference, and strategic intent.
+This observation highlights the cooperative nature of real-world decision-making \citep{Tariq2024}. Decisions are seldom based on a single decision agent or automated component. Organizations frequently rely on heterogeneous units developed for different departments, objectives, data sources, or stakeholder groups. Their outputs must therefore be harmonized into a coherent assessment before they can support action. At the same time, domain experts contribute contextual knowledge that cannot always be represented through precise numerical rules. Such knowledge is often expressed through gradual concepts and linguistic assessments that reflect uncertainty, preference, and strategic intent.
 
 Fuzzy logic provides a well-established mathematical framework for representing this type of contextual reasoning \citep{Kumar2025,Ghosh2020}. Through fuzzy sets and linguistic variables, experts can model concepts such as urgency, strategic relevance, or suitability in a transparent and interpretable manner. This makes fuzzy approaches particularly attractive for decision-support environments in which quantitative predictions must be complemented by qualitative contextual considerations.
 
-To address these challenges, \citet{NovoaHernandez2026} proposed \textbf{CADEMAS} (Cooperative Automated Decision-Making Systems), a conceptual framework that separates the decision process into three complementary components. The \emph{Input Manager} is responsible for collecting cases and predictive outputs. The \emph{Output Manager} aggregates the predictive information into a unified risk assessment. The \emph{Context Model} evaluates each case from a contextual perspective using fuzzy reasoning. Together, these components provide a structured mechanism for combining predictive evidence and contextual knowledge within a single decision-support process.
+To address these challenges, \citet{NovoaHernandez2026} proposed \textbf{CADEMAS} (Cooperative Automated Decision-Making Systems), a conceptual framework for coordinating heterogeneous automated decision units. CADEMAS separates the decision process into an input-management layer, a set of ADM units, an output or decision-integration layer, and a contextual component that evaluates the integrated proposal against external conditions. Importantly, the framework is not restricted to predictive models. A CADEMAS unit may produce a score, recommendation, rule activation, symbolic output, or preliminary decision signal. Predictive probabilities are therefore one possible type of ADM output, not the defining element of the framework.
 
-The practical value of this approach was subsequently illustrated by \citet{Godz2026}, who applied CADEMAS to employee-attrition prevention. Their study showed how predictive models developed by different organizational units could be coordinated with context-dependent management policies to generate prioritizations aligned with organizational objectives.
+The practical value of this approach was subsequently illustrated by \citet{Godz2026}, who instantiated CADEMAS in employee-attrition prevention. Their study did not propose a new CADEMAS variant; rather, it showed how the general architecture can be specialized to a machine-learning setting in which predictive models developed from different organizational perspectives are coordinated with context-dependent management policies to generate prioritizations aligned with organizational objectives.
 
-Although CADEMAS provides a solid conceptual foundation, its adoption is currently limited by the lack of a dedicated software implementation. Researchers and practitioners who wish to apply the framework must develop their own solutions to integrate predictive models, aggregate risk estimates, and construct fuzzy contextual assessments. Existing fuzzy and multi-criteria decision-making tools (e.g., \citealp{Wieckowski2022,Wieckowski2023,Roszkowska2024,Grazioso2023,Dikopoulou2021,Chen2020}) offer valuable functionalities, but none has been designed as an end-to-end cooperative ADM platform that combines multiple ML classifiers with a configurable fuzzy context layer. As discussed in Section~\ref{sec:related}, this creates a gap between the conceptual framework and its practical application.
+Although CADEMAS provides a solid conceptual foundation, its adoption is currently limited by the lack of a dedicated software implementation. Researchers and practitioners who wish to apply the framework must still develop their own solutions for routing case data, collecting partial ADM outputs, integrating those outputs, and evaluating the resulting proposal under explicit contextual assumptions. Existing cooperative AI frameworks, multi-agent systems, fuzzy decision-support tools, and hybrid fuzzy-ML applications each address part of this problem, but they do not provide a reusable workflow organized around the CADEMAS separation between decision-unit outputs, integration, context modulation, and final prioritization. As discussed in Section~\ref{sec:related}, this creates a gap between the conceptual framework and its practical application.
 
 This paper addresses that gap by presenting \textbf{CADEMAS-ML}, a software tool that operationalizes the CADEMAS framework for cooperative and context-aware ADM. The main contributions of this work are the following:
-
 \begin{itemize}
-
-\item Design and implementation of CADEMAS-ML, the first software tool that operationalizes the CADEMAS framework for cooperative and context-aware automated decision-making.
-
-\item A configurable methodology for combining multiple machine-learning models and fuzzy contextual knowledge within a unified prioritization process.
-
+\item Design and implementation of CADEMAS-ML, a software tool that operationalizes CADEMAS for machine-learning-based cooperative and context-aware automated decision-making.
+\item A configurable methodology that treats predictive models as ADM units and combines their outputs with fuzzy contextual knowledge within a unified prioritization process.
 \item A transparent and auditable decision-support architecture that exposes both predictive and contextual contributions to the final prioritization score.
-
 \item An interactive robustness analysis mechanism that evaluates ranking stability under different balances between predictive evidence and contextual policies.
-
 \item Validation through an employee-attrition prevention scenario involving multiple predictive models and alternative organizational contexts.
-
 \end{itemize}
 
-The remainder of the paper is organized as follows. Section~\ref{sec:background} reviews the CADEMAS framework and discusses recent related work on fuzzy and cooperative decision-support tools, with attention to whether they are released as open-source software. Section~\ref{sec:tool} describes CADEMAS-ML in detail, including its architecture, the predictive risk aggregation, the fuzzy contextual suitability layer, and the trade-off parameter. Section~\ref{sec:case} reports an employee-attrition case study under two contrasting contexts. Finally, Section~\ref{sec:conclusions} concludes and outlines directions for future work.
+The remainder of the paper is organized as follows. Section~\ref{sec:background} reviews the CADEMAS framework, positions it with respect to adjacent cooperative-decision frameworks, and compares application-oriented decision-support systems related to CADEMAS-ML. Section~\ref{sec:tool} presents CADEMAS-ML, first describing its architecture and methodological improvements and then illustrating its main functionalities through an employee-attrition case study. Finally, Section~\ref{sec:conclusions} concludes and outlines directions for future work.
 
-\section{Background and related works}
+\section{Background and related works}\label{sec:background}
 
-\subsection{CADEMAS framework}
+\subsection{CADEMAS framework}\label{sec:cademas} 
 
-The CADEMAS (Cooperative Automated Decision-Making Systems) framework was introduced as a general structure for designing decision-support systems that integrate multiple automated assessments while explicitly accounting for the organizational context in which decisions are made \citep{NovoaHernandez2026}. The central motivation behind CADEMAS is that real-world decision problems, especially in organizational environments, are rarely driven by a single predictive model. Instead, decisions typically emerge from the combination of multiple partial and sometimes conflicting evaluations produced by different units, models, or data sources, each with its own assumptions, information access, and reliability level.
+The CADEMAS (Cooperative Automated Decision-Making Systems) framework was introduced as a general structure for designing systems in which multiple automated decision-making units cooperate to produce contextually aligned decisions \citep{NovoaHernandez2026}. The central motivation behind CADEMAS is not limited to prediction. Rather, it is that real-world decision problems, especially in organizational environments, rarely emerge from a single autonomous unit with a single representation of the problem. Decisions may depend on heterogeneous signals produced by classifiers, optimization models, simulation components, rule-based systems, large-language-model agents, or institutional procedures, each with its own assumptions, data access, output type, and reliability level.
 
-To formalize this idea, let $\mathcal{E} = \{e_1, \dots, e_n\}$ denote a set of cases to be evaluated, and let $\mathcal{A} = \{A_1, \dots, A_K\}$ represent a collection of automated decision components. Each component produces a partial assessment $p_k(e_i) \in [0,1]$ for a given case $e_i$, which can be interpreted as a risk or priority indicator. Since these components may differ in performance and trustworthiness, each $A_k$ is assigned a confidence weight $w_k \geq 0$, with $\sum_{k=1}^{K} w_k = 1$. These weights can be derived from validation metrics, expert judgment, or governance constraints. The framework aggregates individual outputs into a global predictive risk score:
+To formalize this idea for the prioritization setting addressed in this paper, let $\mathcal{E} = \{e_1, \dots, e_n\}$ denote a set of cases to be evaluated, and let $\mathcal{A} = \{A_1, \dots, A_K\}$ represent a collection of ADM units. In the general CADEMAS framework, each $A_k$ may produce an output $o_k(e_i)$ whose semantics are not necessarily probabilistic: it may be a class, a score, a ranking, a symbolic recommendation, a rule activation, or another decision object. A decision-integration layer is therefore responsible for transforming these heterogeneous outputs into a shared representation and synthesizing them into an integrated proposal. In the ML specialization implemented by CADEMAS-ML, the ADM units are predictive models and the harmonized output is a scalar risk or priority signal $p_k(e_i) \in [0,1]$. Since these components may differ in performance and trustworthiness, each $A_k$ is assigned a confidence weight $w_k \geq 0$, with $\sum_{k=1}^{K} w_k = 1$. These weights can be derived from validation metrics, expert judgment, or governance constraints. The ML specialization aggregates individual outputs into an integrated risk score:
 \begin{equation}
-R(e_i) = \sum_{k=1}^{K} w_k \, p_k(e_i).    
+R(e_i) = \sum_{k=1}^{K} w_k \, p_k(e_i).
 \end{equation}
 
-Rather than treating this aggregated value as the final decision criterion, CADEMAS introduces an explicit contextual layer that captures organizational priorities, policies, and scenario-dependent considerations. This layer is defined through a set of contextual factors $\mathcal{C} = \{C_1, \dots, C_L\}$, each of which encodes a relevant dimension of decision-making beyond predictive performance. These factors are modeled using fuzzy logic, allowing gradual degrees of satisfaction instead of binary rules. For each case $e_i$, the degree to which it satisfies factor $C_\ell$ is given by $\mu_\ell(e_i) \in [0,1]$, and these values are aggregated into a contextual score:
+Rather than treating the integrated output as the final decision criterion, CADEMAS introduces an explicit contextual layer that captures organizational priorities, policies, constraints, and scenario-dependent considerations. The original framework does not prescribe a single context formalism. Context may be represented through crisp rules, utility functions, regulatory constraints, fuzzy propositions, or other evaluative mechanisms. In CADEMAS-ML, and following the attrition application of \citet{Godz2026}, fuzzy logic is used because it supports gradual degrees of satisfaction instead of binary rules. Let $\mathcal{C} = \{C_1, \dots, C_L\}$ be a set of contextual factors. For each case $e_i$, the degree to which it satisfies factor $C_\ell$ is given by $\mu_\ell(e_i) \in [0,1]$, and these values are aggregated into a contextual score:
 \begin{equation}
 C(e_i) = H\big(\mu_1(e_i), \dots, \mu_L(e_i)\big),    
 \end{equation}
 where $H: [0,1]^L \rightarrow [0,1]$ is an aggregation operator that can take different forms depending on the decision policy (e.g., t-norms, averages, or hierarchical compositions).
 
-The final prioritization index is obtained by combining predictive risk and contextual suitability:
+The final prioritization index in CADEMAS-ML is obtained by combining the ML-derived risk and the contextual suitability score:
 \begin{equation}
 \pi(e_i) = \Psi\big(R(e_i), C(e_i)\big),    
 \end{equation}
-where $\Psi$ is a monotonic function that defines the trade-off between both components. A key design principle of CADEMAS is the separation between predictive evidence and contextual interpretation, which makes explicit what the models suggest and what the organization considers relevant.
+where $\Psi$ is a monotonic function that defines the trade-off between both components. A key design principle inherited from CADEMAS is the separation between the integrated ADM proposal and its contextual interpretation. In the ML specialization, this makes explicit what the predictive models suggest and what the organization considers relevant.
 
-The framework has been instantiated in different application domains, including employee attrition prediction as described by \citet{Godz2026}. In that case, multiple machine learning models were trained on different organizational perspectives (e.g., Human Resources, Finance, Operations, and Employee Wellbeing). Each model acts as a decision component within $\mathcal{A}$, and their outputs are combined using weights derived from validation performance, specifically AUC. In parallel, the contextual layer encodes scenario-dependent organizational priorities (e.g. economic crisis or digital transformation settings) using fuzzy membership functions and rule-based structures.
+The framework has been instantiated in employee attrition prevention by \citet{Godz2026}. In that application, multiple machine-learning models were trained on different organizational perspectives (e.g., Human Resources, Finance, Operations, and Employee Wellbeing). Each model acts as an ADM unit within $\mathcal{A}$, and their outputs are combined using weights derived from validation performance, specifically AUC. In parallel, the contextual layer encodes scenario-dependent organizational priorities (e.g., economic crisis or digital transformation settings) using fuzzy membership functions and rule-based structures. This work should therefore be read as an application of CADEMAS to an ML-driven decision-support problem, not as a reformulation of the general CADEMAS framework.
 
-Although this implementation demonstrates the practicality of the framework, it represents only one possible configuration. In general, CADEMAS is designed to remain flexible across several dimensions. Confidence weights $w_k$ can be defined using alternative performance measures (e.g., F1-score, precision, recall, calibration metrics, or utility-based indicators), depending on the operational objectives of the organization. Similarly, the aggregation operator $H$ is not restricted to a specific form and may be adapted to reflect different decision policies, ranging from conservative (conjunctive) to compensatory behaviors. The same applies to the combination function $\Psi$, which can be tuned to reflect different trade-offs between predictive and contextual information. Finally, contextual factors $\mu_\ell$ can be specified using different membership function families (triangular, trapezoidal, linear, or categorical) and may include conditional or scenario-dependent rules.
+Although this implementation demonstrates the practicality of the framework, it represents only one possible configuration. In general, CADEMAS is designed to remain flexible across several dimensions: the type of ADM units, the semantics of their outputs, the mechanism used for semantic harmonization, the integration operator, and the context-modulation strategy. CADEMAS-ML fixes some of those degrees of freedom in order to provide a concrete software tool: ADM units are H2O MOJO predictive models, the integrated output is a weighted probability-based risk score, the contextual model is expressed through fuzzy rules, and the final decision is a tunable prioritization index. Within that specialization, confidence weights $w_k$ can still be defined using alternative performance measures (e.g., F1-score, precision, recall, calibration metrics, or utility-based indicators), the aggregation operator $H$ may reflect different contextual policies, and the combination function $\Psi$ can be tuned to represent different trade-offs between risk and context.
 
 This flexibility is essential for adapting CADEMAS to heterogeneous organizational environments and motivates the need for a software implementation that operationalizes these design choices in a systematic and configurable way.
 
-\subsection{Cooperative and fuzzy decision-support tools}
+\subsection{Related frameworks and decision-support applications}\label{sec:related}
 
-Recent research has increasingly recognized that effective decision support requires more than accurate predictions. In many application domains, decisions emerge from the interaction between predictive models, expert knowledge, and contextual considerations that may change over time. This observation has motivated the development of cooperative and human-centered decision-making frameworks that seek to combine the strengths of automated systems and human expertise.
+Recent research has increasingly recognized that effective decision support requires more than accurate isolated models. In many application domains, decisions emerge from the interaction between automated units, expert knowledge, and contextual considerations that may change over time. For clarity, it is useful to distinguish two related but different bodies of work: general cooperative-decision frameworks, which address how multiple decision entities interact, and application-oriented decision-support systems, which implement concrete methods for a domain or family of decision problems.
 
-Among these efforts, \citet{Tariq2024} propose an AI-to-collaborator (A2C) framework in which humans and AI systems share decision authority through explicit interaction mechanisms. Similarly, \citet{Varga2023} discuss cooperative AI architectures for high-stakes environments and argue that effective collaboration requires a shared representation of context between automated models and domain experts. These contributions provide important conceptual foundations for cooperative decision-making. However, they remain largely architectural or theoretical in nature and do not provide reusable software tools that practitioners can directly adopt. The CADEMAS framework proposed by \citet{NovoaHernandez2026} advances this line of research by explicitly separating predictive evidence from contextual reasoning through distinct architectural components.
+At the framework level, \citet{Tariq2024} propose an AI-to-collaborator (A2C) framework in which humans and AI systems share decision authority through explicit interaction mechanisms. Similarly, \citet{Varga2023} discuss cooperative AI architectures for high-stakes environments and argue that effective collaboration requires a shared representation of context between automated models and domain experts. Other recent systems show related structural patterns in more specific communities: multi-agent LLM planning \citep{Cai2025}, cooperative driving with LLM-based modules \citep{Fang2025}, trust-aware multi-agent reinforcement learning \citep{Pan2025}, distributed decision coordination \citep{Ibro2022}, and ethical multi-agent governance \citep{LakshmanaPerumal2025}. These works are important alternatives or neighboring frameworks because they address cooperation among decision entities. However, their main focus is not the reusable implementation of a CADEMAS-like workflow in which heterogeneous ADM outputs are explicitly separated from context modulation and final prioritization.
 
-At the same time, substantial progress has been made in the development of software tools for fuzzy decision support and multi-criteria decision making. Applications such as \textsc{MakeDecision} \citep{Wieckowski2024} and the fuzzy DEMATEL-based DSS described by \citet{Chekry2024} emphasize transparency and traceability by exposing intermediate calculations to users. In parallel, several open-source libraries have expanded the methodological toolbox available to researchers and practitioners. Examples include \textsc{pyFDM} \citep{Wieckowski2022}, \textsc{pyIFDM} \citep{Wieckowski2023}, \texttt{FuzzyR} \citep{Chen2020}, the intuitionistic-fuzzy toolkit of \citet{Roszkowska2024}, the \textsc{Eligere} platform \citep{Grazioso2023}, and the Fuzzy Cognitive Maps package presented by \citet{Dikopoulou2021}. These contributions have significantly improved the accessibility and reproducibility of fuzzy and MCDM methodologies. Nevertheless, their primary focus remains the implementation of fuzzy reasoning, ranking, or preference modelling techniques. They are not designed to integrate multiple predictive models within a unified decision-support workflow.
+At the application and decision-support level, substantial progress has been made in fuzzy decision support, multi-criteria decision making, and hybrid fuzzy-ML workflows. Applications such as \textsc{MakeDecision} \citep{Wieckowski2024} and the fuzzy DEMATEL-based DSS described by \citet{Chekry2024} emphasize transparency and traceability by exposing intermediate calculations to users. A related stream has explored the combination of machine learning and fuzzy reasoning. The survey by \citet{Kumar2025} highlights the growing interest in hybrid fuzzy-ML systems and identifies configurability and expert participation as key challenges for future decision-support tools. Other studies have proposed application-specific integrations of predictive models and expert knowledge, including fuzzy decision-support architectures \citep{Ghosh2020}, Fermatean fuzzy decision frameworks \citep{Suvitha2025}, and context-sensitive prioritization approaches based on fuzzy AHP and machine learning \citep{Aly2018}. These contributions demonstrate the value of combining data-driven evidence with contextual or expert-defined criteria, but most are tailored to particular methods or domains rather than organized around the CADEMAS decomposition of ADM units, integration, context, and final prioritization.
 
-A related stream of research has explored the combination of machine learning and fuzzy reasoning. The survey by \citet{Kumar2025} highlights the growing interest in hybrid fuzzy-ML systems and identifies configurability and expert participation as key challenges for future decision-support tools. Other studies have proposed application-specific integrations of predictive models and expert knowledge, including fuzzy decision-support architectures \citep{Ghosh2020}, Fermatean fuzzy decision frameworks \citep{Suvitha2025}, and context-sensitive prioritization approaches based on fuzzy AHP and machine learning \citep{Aly2018}. Collectively, these works demonstrate the value of combining data-driven prediction with human knowledge. However, most of the reported solutions are tailored to particular domains and are presented as bespoke implementations rather than configurable and reusable software platforms.
+Open-source fuzzy and MCDM libraries, including \textsc{pyFDM} \citep{Wieckowski2022}, \textsc{pyIFDM} \citep{Wieckowski2023}, \texttt{FuzzyR} \citep{Chen2020}, the intuitionistic-fuzzy toolkit of \citet{Roszkowska2024}, the \textsc{Eligere} platform \citep{Grazioso2023}, and the Fuzzy Cognitive Maps package presented by \citet{Dikopoulou2021}, are also relevant. They improve reproducibility and provide reusable computational building blocks. Nevertheless, software availability is not the central distinction pursued here. The key issue is whether a system captures the cooperative ADM problem that CADEMAS is intended to solve: multiple decision-producing units, explicit integration of their outputs, contextual evaluation that is kept conceptually separate, and a final decision mechanism whose assumptions can be inspected and varied.
 
 \begin{table}[t]
-\caption{Comparison of representative recent works on fuzzy and cooperative decision-support tools. The Software column reflects the availability of the associated implementation, when reported by the authors.\label{tab:related}}
+\caption{Comparison of representative application-oriented decision-support works related to CADEMAS-ML. The comparison emphasizes whether each contribution captures the cooperative ADM elements targeted by CADEMAS, rather than whether software is publicly released.\label{tab:related}}
 \small
 \begin{adjustwidth}{-\extralength}{0cm}
-	\begin{tabularx}{\fulllength}{>{\raggedright\arraybackslash}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash} l}
+	\begin{tabularx}{\fulllength}{>{\raggedright\arraybackslash}l >{\raggedright\arraybackslash}X c c >{\raggedright\arraybackslash}X}
 		\toprule
-		\textbf{Work} & \textbf{Approach} & \textbf{Methodology} & \textbf{Software} \\
+		\textbf{Work} & \textbf{Decision-support focus} & \textbf{Multiple ADM units} & \textbf{Explicit context layer} & \textbf{Relation to CADEMAS-ML} \\
 		\midrule
-		\citet{NovoaHernandez2026} & Cooperative ADM framework & Coop., context-aware, fuzzy & Conceptual \\
-		\citet{Godz2026} & CADEMAS in HR attrition & Coop., fuzzy, ML & Application \\
-		\citet{Tariq2024} & Human--AI coop.\ (A2C) & Coop., hybrid & n/a \\
-		\citet{Varga2023} & Cooperative AI & Coop., conceptual & n/a \\
-		\citet{Wieckowski2024} & Fuzzy MCDM web app & Fuzzy MCDM, auditable & Web app \\
-		\citet{Chekry2024} & Fuzzy DEMATEL DSS & Fuzzy MCDM & n/a \\
-		\citet{Wieckowski2022} & pyFDM library & Fuzzy MCDM & OSS (Python) \\
-		\citet{Wieckowski2023} & pyIFDM library & IF fuzzy MCDM & OSS (Python) \\
-		\citet{Roszkowska2024} & IF-MCDM toolkit & Fuzzy MCDM & OSS \\
-		\citet{Grazioso2023} & Eligere platform & Fuzzy ranking & OSS \\
-		\citet{Dikopoulou2021} & FCM package & FCM, context model. & OSS \\
-		\citet{Chen2020} & FuzzyR (R) & Fuzzy inference & OSS (R) \\
-		\citet{Kumar2025} & Fuzzy--ML survey & Fuzzy, ML, hybrid & Survey only \\
-		\citet{Ghosh2020} & Fuzzy DSS w/ rules & Fuzzy, hybrid & n/a \\
-		\citet{Suvitha2025} & Fermatean fuzzy ops & Fuzzy aggregation & n/a \\
-		\citet{Aly2018} & Fuzzy AHP + ML & Fuzzy MCDM, ML & n/a \\
-		\textbf{CADEMAS-ML (this work)} & Cooperative ADM tool & Coop., fuzzy, ML, context-aware & OSS planned (Py.) \\
+		\citet{Godz2026} & Employee-attrition prevention using CADEMAS with departmental ML models & Yes & Yes & Direct application that motivates the implemented workflow \\
+		\citet{Wieckowski2024} & Auditable fuzzy MCDM through a web-based tool & No & Partly & Strong transparency, but no cooperative ADM integration layer \\
+		\citet{Chekry2024} & Fuzzy DEMATEL decision-support system & No & Partly & Traceable fuzzy causal analysis, but method-specific rather than CADEMAS-like \\
+		\citet{Ghosh2020} & Fuzzy DSS with integrated expert rules for predictive workflows & Partly & Yes & Combines prediction and expert rules, but as a bespoke workflow \\
+		\citet{Aly2018} & Context-sensitive prioritization using fuzzy AHP and ML & Partly & Yes & Hybrid fuzzy-ML prioritization without a general ADM architecture \\
+		\citet{Suvitha2025} & Fermatean fuzzy aggregation for expert-driven preferences & No & Partly & Rich aggregation operators, but no predictive/ADM cooperation layer \\
+		\textbf{CADEMAS-ML (this work)} & Configurable prioritization with ML-based ADM units and fuzzy context scenarios & Yes & Yes & Operationalizes CADEMAS for reusable ML-driven decision support \\
 		\bottomrule
 	\end{tabularx}
 \end{adjustwidth}
 \end{table}
 
-Table~\ref{tab:related} summarizes representative contributions in these areas. Two observations emerge from this comparison. First, the software ecosystem surrounding fuzzy decision support has matured considerably, with many authors releasing reusable implementations and open-source libraries. Second, despite the methodological richness of the literature, no reviewed work simultaneously provides a cooperative decision-making architecture, the aggregation of multiple ML predictive models, a configurable fuzzy context layer, and an operational software environment that allows users to control the balance between predictive and contextual evidence.
+Table~\ref{tab:related} summarizes representative application-oriented contributions in these areas. Two observations emerge from this comparison. First, several works provide valuable fuzzy, MCDM, or hybrid fuzzy-ML mechanisms for transparent decision support. Second, these mechanisms usually address one part of the CADEMAS problem: preference aggregation, explainable fuzzy rules, contextual scoring, or predictive assistance. What remains missing is an operational workflow in which multiple ADM units are treated as cooperating components, their outputs are integrated explicitly, contextual evaluation is modeled as a separate layer, and the final prioritization can be recomputed under different decision policies.
 
-CADEMAS-ML is designed to address this gap. Building upon the conceptual framework introduced by \citet{NovoaHernandez2026} and the employee-attrition application reported by \citet{Godz2026}, it provides a configurable software implementation in which predictive risk assessment and contextual reasoning coexist as explicit and auditable components of the decision-making process.
+CADEMAS-ML is designed to address this gap for the predictive-model setting. Building upon the conceptual framework introduced by \citet{NovoaHernandez2026} and the employee-attrition instantiation reported by \citet{Godz2026}, it provides a configurable software implementation in which ML-based ADM outputs and contextual reasoning coexist as explicit and auditable components of the decision-making process. Its planned open-source availability is an additional benefit, but the main contribution is the operationalization of the CADEMAS decomposition in a reusable decision-support tool.
 
 
-\section{CADEMAS-ML software tool}
+\section{CADEMAS-ML software tool}\label{sec:tool}
 
-The CADEMAS framework, as presented in Section~\ref{sec:cademas}, provides a formal and flexible architecture for cooperative, context-aware decision-making. However, its practical adoption requires a concrete implementation that streamlines the design, execution, and analysis of such systems across diverse application domains. This section introduces CADEMAS-ML, a software tool that translates the conceptual CADEMAS architecture into a functional, interactive web application. CADEMAS-ML operationalizes the three core layers—cooperative risk aggregation, fuzzy context evaluation, and decision integration—while explicitly supporting the flexibility discussed in Section~\ref{sec:cademas}: configurable performance metrics for confidence weighting, declarative fuzzy rule definitions, multiple aggregation operators, and adjustable trade-off policies. The tool is designed to empower analysts and decision-makers to instantiate, compare, and audit context-aware prioritization pipelines without requiring low-level programming. The following subsections detail the architectural design and the computational components that constitute the tool. A companion illustrative case study is presented in Section~\ref{sec:casestudy} to demonstrate its capabilities in a concrete organizational setting.
+This section presents CADEMAS-ML as a software realization of one concrete CADEMAS specialization: cooperative prioritization supported by multiple predictive ADM units and an explicit fuzzy context layer. We first explain how the general CADEMAS architecture is instantiated in a configurable ML workflow. Special attention is given to the fuzzy context model and to the robustness analysis of the prioritization ranking. We then use the employee-attrition example distributed with the repository to show the main functionalities of the application.
 
-\subsection{Architecture}
+\subsection{Architecture and improvements}\label{sec:architecture_improvements}
 
-CADEMAS-ML follows a modular, end-to-end pipeline architecture that separates data ingestion, model inference, context evaluation, and decision integration into independent but composable stages (Figure~\ref{fig:cademas_arch}). The tool is implemented as a web-based application using the Streamlit framework\footnote{\url{https://streamlit.io/}}, which enables interactive exploration and real-time parameter tuning without requiring local software installation. The source code is publicly available in an open-source repository\footnote{\url{https://github.com/...}}, and a live deployment is accessible online\footnote{\url{https://...}}.
+CADEMAS-ML is not a domain-specific attrition script. It is an operational implementation of CADEMAS for the case in which the cooperating ADM units are predictive models. In line with \citet{NovoaHernandez2026}, the software keeps partial automated assessments separate from their contextual interpretation. Its contribution is to make this separation executable for ML-based decision support. Predictive components, contextual rules, and decision policies are configured explicitly and can be inspected through the interface. Thus, the attrition study of \citet{Godz2026} becomes one possible configuration of the tool, not its only intended use.
 
-The pipeline accepts four mandatory inputs: (i) a case dataset in CSV format (e.g., employee records); (ii) a collection of H2O MOJO models\footnote{\url{https://h2o.ai/}} representing the automated decision components; (iii) a JSON configuration specifying the performance metrics used to compute confidence weights; and (iv) a JSON configuration defining the fuzzy context rules. Upon execution, the pipeline performs batch inference over all cases, computes the cooperative risk score $R_i$ and the context alignment score $C_i$ for each case, and combines them into the final prioritization index $\pi_i$. All intermediate artifacts—per-model probabilities, membership degrees, and component contributions—are retained in session state for interactive inspection across multiple visualization tabs. This design ensures full traceability of the decision process while enabling comparative analysis under alternative configurations.
+The application combines a Streamlit interface, H2O MOJO inference, and a vectorized fuzzy-context engine. A run starts from four inputs: the case dataset, the MOJO models, a model-metadata JSON file, and one or more context JSON files. These inputs map naturally onto the CADEMAS layers. The dataset and configuration files act as the input manager. The MOJO files instantiate the ADM units in this ML specialization. Their weighted probabilistic outputs form the integrated predictive risk. The fuzzy-rule engine provides the contextual model. The final layer combines both streams through a user-adjustable policy parameter. Figure~\ref{fig:cademas_arch} summarizes this architecture.
 
 \begin{figure}[t]
 \centering
-% \includegraphics[width=0.9\textwidth]{figures/cademas_architecture.png}
 \fbox{%
-\parbox{0.8\textwidth}{\centering \vspace{3cm} 
-\textbf{Figure placeholder:} 
-Architectural pipeline of CADEMAS-ML showing data ingestion, MOJO ensemble inference, fuzzy context engine, $\lambda$-controlled integration, and visualization modules.%
-\vspace{3cm}}
+\parbox{0.85\textwidth}{\centering \vspace{2.8cm}
+\textbf{Figure placeholder:} Architecture of CADEMAS-ML showing the four inputs, MOJO inference, fuzzy context evaluation, $\lambda$-controlled prioritization, and the output modules.
+\vspace{2.8cm}}
 }
-\caption{Modular architecture of CADEMAS-ML. The pipeline processes input data through parallel risk and context evaluation paths, combines them via the $\lambda$ trade-off parameter, and provides interactive visualization and robustness analysis.}
+\caption{Operational architecture of CADEMAS-ML. The software instantiates the CADEMAS architecture as a configurable pipeline in which predictive risk and contextual alignment are computed independently before being integrated into a prioritization index.}
 \label{fig:cademas_arch}
 \end{figure}
 
-\subsection{Predictive risk}
+\subsubsection{ML-based cooperative risk}
 
-The cooperative risk layer implements the weighted ensemble aggregation defined in the CADEMAS framework. Let $\mathcal{M} = \{1, \dots, M\}$ denote the set of uploaded H2O MOJO models, each corresponding to an automated decision component $A_k$. For a user-selected performance metric $m$ (e.g., AUC, F1-score, log-loss), let $s_j$ be the performance value of model $j$ on metric $m$. The confidence weight for each component is computed by normalizing the performance scores:
-
+The predictive layer follows the cooperative aggregation principle of CADEMAS as specialized in the attrition instantiation of \citet{Godz2026}. CADEMAS-ML exposes that specialization as a reusable software component. Let $\mathcal{E}=\{e_1,\ldots,e_n\}$ be the set of cases and let $\mathcal{M}=\{M_1,\ldots,M_K\}$ be the uploaded predictive ADM units. Each model $M_k$ produces, for case $e_i$, a positive-class probability
 \[
-w_j = \frac{s_j}{\sum_{k \in \mathcal{M}} s_k}, \quad j \in \mathcal{M}.
+\hat{p}_{ik} \in [0,1].
 \]
+The models need not use the same feature subset. Each MOJO receives the available case matrix and uses its internal schema to select the required variables. The contribution of each component is controlled by a non-negative confidence weight $w_k$. This weight is computed from a user-selected validation metric $s_k$:
+\begin{equation}
+w_k = \frac{s_k}{\sum_{\ell=1}^{K} s_\ell}, \qquad \sum_{k=1}^{K}w_k=1.
+\label{eq:model_weights}
+\end{equation}
+The cooperative machine-learning risk score is then
+\begin{equation}
+R_i=\sum_{k=1}^{K}w_k\hat{p}_{ik}.
+\label{eq:ml_risk}
+\end{equation}
+This mathematical form is the ML-specific realization of the more general CADEMAS decision-integration layer. The improvement introduced by CADEMAS-ML is practical configurability. Users can upload any number of compatible MOJO models, read model metadata from JSON, and choose the validation metric used for weighting.
 
-This weighting scheme reflects the relative trust assigned to each component based on prior validation evidence. The tool imposes no restriction on the number of models or the performance metric used, directly supporting the flexibility discussed in Section~\ref{sec:cademas}. For each case $i$, each model $j$ produces a positive-class probability $\hat{p}_{ij} \in [0,1]$ via MOJO inference. The global cooperative risk score is then computed as the weighted average:
+\subsubsection{Configurable fuzzy context model}
 
-\[
-R_i = \sum_{j \in \mathcal{M}} w_j \, \hat{p}_{ij}.
-\]
+The context layer is where CADEMAS-ML most clearly turns the conceptual framework into an operational artifact. The role of context follows \citet{NovoaHernandez2026}, and the use of fuzzy propositions follows the attrition application in \citet{Godz2026}. The difference is that CADEMAS-ML does not hard-code those contexts. It represents them as JSON specifications. The same formalism can therefore be reused with other domains, rule families, and decision policies.
 
-All models are required to agree on the predicted positive label across the entire batch; otherwise, the pipeline halts with a clear diagnostic error. Individual model probabilities are preserved in the session state, enabling per-model inspection in the dedicated \texttt{Models} tab. This transparency allows analysts to identify discrepancies among decision components and assess the influence of each model on the final risk score. The tool automatically handles feature alignment across heterogeneous models—a critical requirement when components operate on different feature subsets, as in the employee attrition scenario—by passing the full feature matrix to each MOJO model, leveraging H2O's internal alignment capabilities.
+Formally, a context is defined as a collection of fuzzy propositions. Let $V_r$ be a case attribute and let $\tilde{F}_r$ be a fuzzy set representing a linguistic predicate over the universe of $V_r$. For case $e_i$, an atomic rule $r$ evaluates the proposition ``$V_r$ is $\tilde{F}_r$'' as
+\begin{equation}
+\mu_r(e_i)=\mu_{\tilde{F}_r}(x_{ir}) \in [0,1],
+\label{eq:atomic_mu}
+\end{equation}
+where $x_{ir}$ is the observed value of attribute $V_r$ for case $e_i$. The implementation supports triangular, trapezoidal, linear increasing, and linear decreasing membership functions. It also supports categorical maps and categorical sets. The former assign degrees directly to symbolic values. The latter group categories into linguistic labels that can be scored later in derived rules.
 
-\subsection{Fuzzy context}
+Atomic rules may include activation conditions. If $m_r(e_i)\in\{0,1\}$ denotes whether the \texttt{when} condition of rule $r$ is satisfied for case $e_i$, the effective membership is
+\begin{equation}
+\mu_r^{*}(e_i)=m_r(e_i)\mu_r(e_i),
+\label{eq:conditional_mu}
+\end{equation}
+with $m_r(e_i)=1$ for unconditional rules. This makes it possible to represent policies such as department-specific salary suitability without duplicating datasets or writing procedural code.
 
-The context layer is the most distinctive and configurable component of CADEMAS-ML. It provides a declarative fuzzy inference engine that maps raw case features to a scalar context alignment score $C_i \in [0,1]$. This engine implements the fuzzy proposition model described in Section~\ref{sec:cademas} through a structured JSON configuration that can be defined and modified without code changes, embodying the flexibility of membership function families, aggregation operators, and conditional rules highlighted in the framework discussion.
+Beyond atomic rules, CADEMAS-ML allows the definition of derived rules. A derived rule $d$ combines a subset of already computed memberships through an aggregation operator $G_d$:
+\begin{equation}
+\mu_d(e_i)=G_d\left(\mu_{r_1}^{*}(e_i),\ldots,\mu_{r_q}^{*}(e_i)\right).
+\label{eq:derived_mu}
+\end{equation}
+The implemented operators are minimum-based \texttt{AND}, maximum-based \texttt{OR}, algebraic \texttt{PRODUCT}, and arithmetic \texttt{AVERAGE}. The context alignment score is then obtained by applying a final aggregation policy $H$ to selected atomic and derived memberships:
+\begin{equation}
+C_i = H\left(\mu_1(e_i),\ldots,\mu_L(e_i)\right).
+\label{eq:context_score}
+\end{equation}
+The function $H$ can be selected interactively or specified as a declarative logic tree in the context JSON. This captures the attrition instantiation in \citet{Godz2026}, but makes it portable. It also lets organizations express conservative, compensatory, hierarchical, or conditional contextual policies without changing the application code.
 
-The configuration schema comprises three hierarchical elements:
+All atomic and derived memberships are retained as an audit matrix. The final context score is therefore not a black-box modifier of the ML risk. It can be decomposed into the rule activations that produced it.
 
-\begin{enumerate}
-\item \textbf{Atomic rules}. Each atomic rule defines a mapping from a single feature to a membership degree $\mu_r(i) \in [0,1]$. The tool supports numeric membership functions (triangular, trapezoidal, linear increasing, linear decreasing), categorical direct mappings, and categorical set assignments. Importantly, atomic rules can include a \texttt{when} clause that restricts their activation to specific subpopulations (e.g., department-specific salary bands), enabling context-dependent policies without duplicating features.
+\subsubsection{Decision integration and robustness}
 
-\item \textbf{Derived rules}. Derived rules compose the outputs of one or more atomic or other derived rules through fuzzy aggregation operators. The tool implements four operators: \texttt{AND} (minimum, Gödel t-norm), \texttt{OR} (maximum, Gödel s-norm), \texttt{PRODUCT} (product t-norm), and \texttt{AVERAGE}. This allows analysts to construct hierarchical policy structures—for instance, defining \emph{commitment} as the minimum of job involvement and job satisfaction, and \emph{retention value} as the average of commitment and performance—directly in the configuration.
+Predictive evidence and contextual suitability remain separate until the final decision stage. For a fixed policy parameter $\lambda\in[0,1]$, CADEMAS-ML computes the prioritization score as
+\begin{equation}
+P_i(\lambda)=\lambda R_i+(1-\lambda)C_i.
+\label{eq:priority_lambda}
+\end{equation}
+The interpretation is direct. A value $\lambda=1$ produces a risk-driven ranking. A value $\lambda=0$ produces a context-driven ranking. Intermediate values encode explicit trade-offs between both components.
 
-\item \textbf{Final aggregation}. The context score $C_i$ is obtained by aggregating the outputs of all atomic and derived rules. The tool provides two paths: (i) a user-selectable global operator (average, minimum, or product) applied across all numeric membership columns at runtime; or (ii) a declarative logic tree specified in the configuration, which defines a recursive expression over named rules. The former supports rapid interactive exploration; the latter ensures portability and reproducibility of context definitions across sessions.
-\end{enumerate}
+The robustness module is a specific improvement of CADEMAS-ML over the previous static attrition instantiation. Let $\Lambda=\{\lambda_0,\ldots,\lambda_q\}$ be a finite grid of policy values. For each $\lambda\in\Lambda$, the tool computes the score vector $P(\lambda)$ and the ranking
+\begin{equation}
+r_i(\lambda)=1+\left|\{j: P_j(\lambda)>P_i(\lambda)\}\right|,
+\label{eq:rank_lambda}
+\end{equation}
+with deterministic tie-breaking by case order. This produces a rank trajectory for every case. CADEMAS-ML summarizes these trajectories through a bump chart, a rank box plot, and rank acceptability indices. The bump chart shows how each case moves as $\lambda$ changes. The box plot summarizes the distribution of ranks over $\Lambda$. Cases are ordered by median rank and interquartile range. Finally, the rank acceptability index estimates how often a case attains a given rank:
+\begin{equation}
+b_i^r = \frac{1}{|\Lambda|}\sum_{\lambda\in\Lambda}\mathbf{1}\{r_i(\lambda)=r\}.
+\label{eq:rank_acceptability}
+\end{equation}
+Together, these indicators distinguish stable priorities from policy-sensitive cases.
 
-Every computed membership degree—atomic and derived—is stored in a per-case audit matrix, providing complete traceability of the fuzzy inference chain. The tool visualizes membership functions for numeric rules and presents the full audit table in the \texttt{Context} tab, enabling analysts to verify that the context configuration behaves as intended for individual cases. This auditability directly addresses the need for transparency in automated decision systems.
+\subsection{Main functionalities}\label{sec:case}\label{sec:casestudy}
 
-\subsection{Decision integration and robustness analysis}
+We now describe the main functionalities of CADEMAS-ML through the employee-attrition example distributed with the application. The example follows the rationale of \citet{Godz2026}, but is presented here as a reproducible software workflow. The goal is not to improve attrition prediction accuracy. Rather, it is to show how heterogeneous predictive assessments and contextual policies can be configured, audited, and combined for intervention prioritization.
 
-The final prioritization index combines the cooperative risk and the context alignment score through a convex combination parameterized by a user-controlled trade-off factor $\lambda \in [0,1]$:
+\subsubsection{Input configuration and analysis workflow}
 
-\[
-P_i = \lambda \, R_i + (1 - \lambda) \, C_i,
-\]
+The case study is based on the IBM HR Analytics Employee Attrition and Performance dataset used by \citet{Godz2026}. The original data contain 1,470 employee records and 35 attributes describing demographic, professional, salary, performance, and organizational conditions. The repository includes a 20-case subset prepared to demonstrate the CADEMAS-ML workflow. The subset is smaller in records, not in feature coverage: after excluding the \texttt{Case\_ID} identifier, it keeps the same 35 dataset columns, including the known \texttt{attrition} label (10 employees labeled \texttt{Yes} and 10 labeled \texttt{No}). This label is useful for verification when inspecting the results, but it is not used as a prioritization criterion. Appendix~\ref{app:attrition_features} lists the 34 predictor variables and the subset used by each MOJO model.
 
-where $P_i$ denotes the prioritization score for case $i$. This formulation directly implements the generic combination function $\Psi$ from the CADEMAS framework (Section~\ref{sec:cademas}). The interpretation of $\lambda$ is intuitive: $\lambda = 1$ yields purely risk-driven prioritization, $\lambda = 0$ yields purely context-driven prioritization, and intermediate values represent explicit, adjustable trade-offs between predictive evidence and organizational policy. The tool visualizes the decomposition of $P_i$ into its ML contribution $\lambda R_i$ and context contribution $(1-\lambda) C_i$, making the influence of each component transparent at the individual case level.
+The example bundle contains a semicolon-delimited CSV file, a model-definition JSON file, two context JSON files, and four H2O MOJO models. The CSV file has a \texttt{Case\_ID} column with employee names. CADEMAS-ML uses this column as the case identifier. If no identifier is provided, the application creates one automatically. Identifier and outcome columns are excluded from model inference.
 
-Beyond static prioritization, CADEMAS-ML incorporates a dedicated \textbf{Robustness} module that assesses the stability of case rankings under varying decision policies. For a grid of $\lambda$ values, typically $\{0, \tfrac{1}{k}, \dots, 1\}$, the tool recomputes the prioritization scores and the induced ordering over cases. The results are presented as a bump chart, which visualizes how individual cases move up or down the priority list as the trade-off between risk and context shifts. This sensitivity analysis provides decision-makers with critical insight into whether their prioritization decisions are robust to reasonable variations in policy weighting, or conversely, whether certain cases are highly sensitive to the chosen $\lambda$ and thus require closer scrutiny. The module effectively operationalizes the flexibility of the $\Psi$ combination function, allowing stakeholders to explore the entire spectrum of possible decision policies within a unified interface.
+\begin{figure}[t]
+\centering
+\fbox{%
+\parbox{0.85\textwidth}{\centering \vspace{2.4cm}
+\textbf{Figure placeholder:} Home module and sidebar upload controls for model definitions, context configurations, MOJO models, and the case dataset.
+\vspace{2.4cm}}
+}
+\caption{Home and input configuration module. CADEMAS-ML receives four inputs and presents the operational flow from data loading to prioritization and robustness analysis.}
+\label{fig:home_upload}
+\end{figure}
 
-\subsection{Implementation and availability}
+Following the training protocol of \citet{Godz2026}, the predictive layer simulates four organizational perspectives: Culture and Wellbeing, Finance, Operations and Development, and Human Resources. Each perspective is represented by an H2O AutoML model exported as a MOJO file and reads a distinct feature subset from the shared case matrix (Table~\ref{tab:attrition_feature_assignment}). Using AUC as the weighting metric, the reproduced run produced the weights shown in Table~\ref{tab:tool_model_weights}. The Operations and Development component receives a lower weight because its validation AUC is lower than that of the other three models.
 
-CADEMAS-ML is implemented entirely in Python, leveraging the Streamlit framework for the interactive user interface and the H2O-3 Python API for MOJO model inference. The fuzzy context engine is implemented as a standalone module that parses JSON configurations and evaluates membership functions and aggregation operators in a vectorized manner over batches of cases. This design ensures that the tool remains responsive even with moderately large datasets (tested with thousands of cases and dozens of models). The application is containerized and can be executed locally or deployed on any cloud platform that supports Streamlit applications. The source code, example configurations, and a sample employee attrition dataset are provided in the public GitHub repository. A live demonstration instance is maintained to allow readers and practitioners to explore the tool's capabilities without installation. The tool is released under an open-source license to encourage adoption, extension, and integration with other decision-support ecosystems.
+\begin{table}[t]
+\caption{Models used in the attrition example and AUC-based weights computed by CADEMAS-ML.\label{tab:tool_model_weights}}
+\small
+\begin{tabularx}{\textwidth}{lXcc}
+\toprule
+\textbf{Component} & \textbf{Organizational perspective} & \textbf{AUC} & \textbf{Weight} \\
+\midrule
+$M_1$ & Culture and Wellbeing & 0.9941 & 0.2623 \\
+$M_2$ & Finance & 0.9972 & 0.2631 \\
+$M_3$ & Operations and Development & 0.8022 & 0.2116 \\
+$M_4$ & Human Resources & 0.9968 & 0.2630 \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
-\section{A Case Study: Employee Attrition}
+\subsubsection{Overview: prioritized cases}
 
-\section{Conclusion and future works}
+After execution, the Overview module presents global indicators, a risk-context scatter plot, a score distribution, and the prioritized cases table. In the reproduced Economic Crisis scenario with $\lambda=0.5$, the ML risk ranged from 0.0012 to 0.9882. The context score ranged from 0.1385 to 0.6892. The final prioritization score ranged from 0.1528 to 0.7401. Table~\ref{tab:top_cases} reports the top eight cases.
 
+\begin{figure}[t]
+\centering
+\fbox{%
+\parbox{0.85\textwidth}{\centering \vspace{2.8cm}
+\textbf{Figure placeholder:} Overview module showing global metrics, the risk-context scatter plot, prioritization-score distribution, and prioritized cases table.
+\vspace{2.8cm}}
+}
+\caption{Overview module for the attrition example. The module summarizes the global behavior of the run and identifies cases with the highest prioritization scores.}
+\label{fig:overview}
+\end{figure}
+
+\begin{table}[t]
+\caption{Top prioritized employees in the Economic Crisis context for $\lambda=0.5$.\label{tab:top_cases}}
+\small
+\begin{tabularx}{\textwidth}{lcccc}
+\toprule
+\textbf{Case} & \textbf{$R_i$} & \textbf{$C_i$} & \textbf{$P_i(0.5)$} & \textbf{Rank} \\
+\midrule
+Theodore Adams & 0.9803 & 0.5000 & 0.7401 & 1 \\
+Amelia Davis & 0.9879 & 0.4895 & 0.7387 & 2 \\
+Evelyn Taylor & 0.9555 & 0.4542 & 0.7048 & 3 \\
+William Young & 0.9751 & 0.4098 & 0.6925 & 4 \\
+Charlotte Miller & 0.9204 & 0.3906 & 0.6555 & 5 \\
+Henry King & 0.9676 & 0.3308 & 0.6492 & 6 \\
+Abigail Anderson & 0.9796 & 0.2923 & 0.6359 & 7 \\
+Benjamin Scott & 0.9622 & 0.2923 & 0.6272 & 8 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The top cases illustrate the logic of the system. The first-ranked employee does not have the highest ML risk alone. Rather, the case combines very high risk with moderate contextual alignment under the economic-crisis policy. Conversely, a case with strong contextual alignment may lose priority if its predicted attrition risk is low. This is why CADEMAS-ML keeps $R_i$ and $C_i$ separate before applying the policy trade-off.
+
+\subsubsection{Models: inspecting cooperative risk}
+
+The Models module exposes the ML side of the computation. It displays the normalized model weights, the individual probabilities produced by each MOJO, and the aggregated score $R_i$. This makes the cooperative risk auditable. A high value of $R_i$ can be traced back to one model, to several aligned models, or to the influence of highly weighted components.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\parbox{0.85\textwidth}{\centering \vspace{2.4cm}
+\textbf{Figure placeholder:} Models module with AUC-based weights and per-case MOJO probabilities contributing to the Global ML Risk score.
+\vspace{2.4cm}}
+}
+\caption{Models module. The table links each uploaded MOJO to its confidence weight and displays the per-case probability outputs used to compute $R_i$.}
+\label{fig:models}
+\end{figure}
+
+\subsubsection{Context: auditing fuzzy policies}
+
+The Context module presents the fuzzy-policy side of the computation. In the Economic Crisis scenario, the policy prioritizes employees who are hard to replace, have relevant tenure, show at least medium performance, have acceptable salary cost within their department, and display medium or high commitment. The context is encoded with 11 atomic rules and three derived rules: \texttt{hard\_to\_replace}, \texttt{commitment\_medium\_or\_high}, and \texttt{salary\_cost\_ok}. In the reproduced run, $C_i$ had mean 0.4057 and maximum 0.6892. The highest context-aligned cases were Oliver Walker, Noah Lewis, Sophia Brown, Theodore Adams, and Amelia Davis.
+
+The second context, Digital / Technological Transformation, focuses on upskilling capacity, role adaptability, career scalability, and investment horizon. It uses seven atomic rules and three derived rules. Its context scores ranged from 0.1500 to 0.7100. The top context-aligned cases were Noah Lewis, Evelyn Taylor, Oliver Walker, Emma Smith, and Olivia Johnson. The contrast between both contexts shows that CADEMAS-ML is not tied to the policy choices in \citet{Godz2026}. A different organizational situation can be represented by changing the JSON context specification.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\parbox{0.85\textwidth}{\centering \vspace{2.6cm}
+\textbf{Figure placeholder:} Context module showing membership functions, numerical audit tables, derived-rule values, and context-alignment scores.
+\vspace{2.6cm}}
+}
+\caption{Context module. Atomic and derived membership values are exposed for audit, allowing analysts to inspect why a case receives a given contextual score.}
+\label{fig:context}
+\end{figure}
+
+\subsubsection{Robustness: sensitivity of the priority ranking}
+
+The Robustness module evaluates whether the prioritization is stable when $\lambda$ changes. For the Economic Crisis run, we used the grid $\Lambda=\{0,0.25,0.5,0.75,1\}$. Amelia Davis was highly stable among the top alternatives, with median rank 2 and interquartile range 0. Theodore Adams also remained near the top, with median rank 2 and rank range 1--4. Lucas Wright behaved differently. This case ranged from rank 1 to rank 19, which indicates strong sensitivity to the policy trade-off. It is favored under context-driven evaluation, but loses priority as the ranking becomes risk-driven.
+
+\begin{figure}[t]
+\centering
+\fbox{%
+\parbox{0.85\textwidth}{\centering \vspace{2.8cm}
+\textbf{Figure placeholder:} Robustness module with bump chart, rank box plot, and Rank Acceptability Indices heatmap.
+\vspace{2.8cm}}
+}
+\caption{Robustness module. The module evaluates rank stability under changes in $\lambda$, making visible both robust priorities and policy-sensitive cases.}
+\label{fig:robustness}
+\end{figure}
+
+The rank acceptability index complements the bump chart by estimating how often each case attains each rank over the $\lambda$ grid. For example, Amelia Davis occupied rank 2 in 60\% of the evaluated policy settings. Benjamin Scott occupied rank 8 in 60\% of them. These summaries add an interpretable robustness layer. They help distinguish cases that are consistently high priority from those whose position depends strongly on the chosen balance between predictive risk and contextual policy.
+
+\section{Conclusion and future works}\label{sec:conclusions}
+
+\appendixtitles{yes}
+\appendixstart
+\appendix
+\section{Attrition example dataset and model features}\label{app:attrition_features}
+
+The 20-case attrition example distributed with CADEMAS-ML contains 36 columns: \texttt{Case\_ID}, 34 predictor variables, and the \texttt{attrition} outcome label. The predictors cover demographic, professional, compensation, performance, and organizational attributes from the IBM HR dataset used by \citet{Godz2026}. Five variables (\texttt{age}, \texttt{gender}, \texttt{department}, \texttt{job\_role}, and \texttt{job\_level}) are shared by all four MOJO models. Two additional columns (\texttt{employee\_count} and \texttt{employee\_number}) are retained in the CSV file but are not used by any model in the example bundle. Each MOJO receives the full case matrix and selects its required variables according to the schema stored in the model-definition JSON file.
+
+Table~\ref{tab:attrition_feature_assignment} summarizes the feature assignment. The Human Resources model reads \texttt{over18} from the CSV file; the corresponding field is named \texttt{over\_18} in the model metadata.
+
+\begin{table}[H]
+\caption{Predictor variables in the attrition example and the MOJO models that use each one. $M_1$--$M_4$ denote Culture and Wellbeing, Finance, Operations and Development, and Human Resources, respectively.\label{tab:attrition_feature_assignment}}
+\small
+\begin{tabularx}{\textwidth}{lcccc}
+\toprule
+\textbf{Predictor} & $M_1$ & $M_2$ & $M_3$ & $M_4$ \\
+\midrule
+age & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+business\_travel & $\checkmark$ &  &  &  \\
+daily\_rate &  & $\checkmark$ &  &  \\
+department & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+distance\_from\_home &  &  &  & $\checkmark$ \\
+education &  &  &  & $\checkmark$ \\
+education\_field &  &  &  & $\checkmark$ \\
+employee\_count &  &  &  &  \\
+employee\_number &  &  &  &  \\
+environment\_satisfaction & $\checkmark$ &  &  &  \\
+gender & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+hourly\_rate &  & $\checkmark$ &  &  \\
+job\_involvement & $\checkmark$ &  &  &  \\
+job\_level & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+job\_role & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+job\_satisfaction & $\checkmark$ &  &  &  \\
+marital\_status &  &  &  & $\checkmark$ \\
+monthly\_income &  & $\checkmark$ &  &  \\
+monthly\_rate &  & $\checkmark$ &  &  \\
+num\_companies\_worked &  &  & $\checkmark$ &  \\
+over18 &  &  &  & $\checkmark$ \\
+over\_time & $\checkmark$ &  &  &  \\
+percent\_salary\_hike &  & $\checkmark$ &  &  \\
+performance\_rating &  &  & $\checkmark$ &  \\
+relationship\_satisfaction & $\checkmark$ &  &  &  \\
+standard\_hours &  &  &  & $\checkmark$ \\
+stock\_option\_level &  & $\checkmark$ &  &  \\
+total\_working\_years &  &  & $\checkmark$ &  \\
+training\_times\_last\_year &  &  & $\checkmark$ &  \\
+work\_life\_balance & $\checkmark$ &  &  &  \\
+years\_at\_company &  &  & $\checkmark$ &  \\
+years\_in\_current\_role &  &  & $\checkmark$ &  \\
+years\_since\_last\_promotion &  &  & $\checkmark$ &  \\
+years\_with\_curr\_manager &  &  & $\checkmark$ &  \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \reftitle{References}
 

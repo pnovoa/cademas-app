@@ -4,6 +4,7 @@
   "rules": [
     {
       "name": "training_high",
+      "full_name": "High training",
       "feature": "training_times_last_year",
       "type": "linear_increasing",
       "params": [1, 6],
@@ -11,14 +12,15 @@
     },
     {
       "name": "education_high",
+      "full_name": "High education",
       "feature": "education",
       "type": "linear_increasing",
       "params": [2, 5],
       "note": "Higher education level supports upskilling."
     },
-
     {
       "name": "years_company_relevant",
+      "full_name": "Relevant years at company",
       "feature": "years_at_company",
       "type": "triangular",
       "params": [3, 10, 20],
@@ -26,14 +28,15 @@
     },
     {
       "name": "years_role_relevant",
+      "full_name": "Relevant years in role",
       "feature": "years_in_current_role",
       "type": "triangular",
       "params": [1, 6, 11],
       "note": "Role tenure: avoid immediate newcomers and strong stagnation."
     },
-
     {
       "name": "age_investment_window",
+      "full_name": "Age investment window",
       "feature": "age",
       "type": "trapezoidal",
       "params": [22, 28, 50, 57],
@@ -41,14 +44,15 @@
     },
     {
       "name": "experience_sufficient",
+      "full_name": "Sufficient experience",
       "feature": "total_working_years",
       "type": "linear_increasing",
       "params": [2, 10],
       "note": "Minimum experience supports adoption and transfer of knowledge."
     },
-
     {
       "name": "role_adaptability",
+      "full_name": "Role adaptability",
       "feature": "job_role",
       "type": "categorical_map",
       "params": {
@@ -65,10 +69,10 @@
       "note": "Role adaptability as a prior map (tunable)."
     }
   ],
-
   "derived_rules": [
     {
       "name": "upskilling_capacity",
+      "full_name": "Upskilling capacity",
       "op": "AVERAGE",
       "inputs": [
         { "rule": "training_high" },
@@ -78,6 +82,7 @@
     },
     {
       "name": "career_scalability",
+      "full_name": "Career scalability",
       "op": "PRODUCT",
       "inputs": [
         { "rule": "years_company_relevant" },
@@ -87,6 +92,7 @@
     },
     {
       "name": "investment_horizon",
+      "full_name": "Investment horizon",
       "op": "PRODUCT",
       "inputs": [
         { "rule": "age_investment_window" },
@@ -95,7 +101,6 @@
       "note": "Horizon: enough time + enough experience."
     }
   ],
-
   "logic": {
     "op": "AND",
     "inputs": [

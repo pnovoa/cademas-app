@@ -15,6 +15,9 @@ from matplotlib.colors import to_hex
 from animation import render_animated_header
 from h2o.model import ModelBase
 from fuzzy_context import calculate_context_score, get_membership
+from explain_utils import aggregate_weighted_attributions, humanize_rule
+from ml_attribution import compute_model_attributions
+from view_explanations import render_explain_tab
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(APP_DIR, "assets", "cademas.png")
@@ -24,6 +27,26 @@ MINISTRY_LOGO_PATH = os.path.join(APP_DIR, "assets", "logo_ministerio.jpg")
 CASE_ID_COL = "CaseID"
 CASE_ID_SOURCE_COLUMNS = ("Case_ID", "ID")
 CSV_DELIMITERS = (",", ";", "\t")
+
+
+def _risk_progress_column(label: str) -> st.column_config.ProgressColumn:
+    return st.column_config.ProgressColumn(
+        label,
+        format="percent",
+        min_value=0,
+        max_value=1,
+        color="auto-inverse",
+    )
+
+
+def _context_progress_column(label: str) -> st.column_config.ProgressColumn:
+    return st.column_config.ProgressColumn(
+        label,
+        format="%.2f",
+        min_value=0,
+        max_value=1,
+        color="auto-inverse",
+    )
 
 
 def read_uploaded_csv(file) -> pd.DataFrame:
@@ -166,8 +189,8 @@ def render_home_tab(results_ready=False):
             3. **Adjust λ** in the sidebar to balance ML risk and context alignment
                into a single **Prioritization Score**:
                λ · Ri + (1 − λ) · Ci.
-            4. **Explore the results** in Overview, Models, Context, and **Robustness**
-               (sensitivity analysis as λ varies).
+            4. **Explore the results** in Overview, Models, Context, **Explain**, and
+               **Robustness** (sensitivity analysis as λ varies).
             """
         )
 
@@ -364,6 +387,8 @@ if 'ml_details' not in st.session_state: st.session_state.ml_details = None
 if 'context_config' not in st.session_state: st.session_state.context_config = None  # Guardamos config para graficar
 if 'master_data' not in st.session_state: st.session_state.master_data = None  # Guardamos raw data para histogramas
 if 'p_label' not in st.session_state: st.session_state.p_label = None
+if 'ml_attributions' not in st.session_state: st.session_state.ml_attributions = None
+if 'feature_config' not in st.session_state: st.session_state.feature_config = None
 
 
 # --- 5. EJECUCIÓN ---
@@ -403,29 +428,26 @@ if st.session_state.get("run_triggered", False):
                 weights = {m: (val / total if total > 0 else 1 / len(valid_models)) for m, val in metrics_vals.items()}
 
                 st.session_state.ml_details = {"weights": weights, "metric": selected_metric}
+                st.session_state.feature_config = feature_config
 
                 # C. H2O Loop
                 risk_accum = np.zeros(len(master_df))
                 temp_results = master_df.copy()
+                by_model_attribs = {}
+                attribution_warnings = []
 
                 prog_bar = st.progress(0)
-                for i, m_file in enumerate(model_files):
-                    if m_file.name not in weights: continue
+                valid_model_files = [m for m in model_files if m.name in weights]
+                total_model_steps = max(len(valid_model_files), 1)
+                p_col = None
+
+                for i, m_file in enumerate(valid_model_files):
                     path = save_temp_file(m_file)
                     hf = None
                     try:
                         mojo = h2o.import_mojo(path)
-                        #output = mojo._model_json['output']
-                        # Columnas originales usadas por el modelo
-                        #input_cols = list(output['names'])
-                        # Eliminar la variable objetivo si aparece
-                        #response = output.get('response_column')
-                        #if response in input_cols:
-                        #    input_cols.remove(response)
-                        # Subconjunto seguro del master dataset
                         hf = h2o.H2OFrame(model_df)
                         preds = mojo.predict(hf).as_data_frame()
-                        print(f"Columns: {preds.columns}")
                         p_col = 'p1' if 'p1' in preds.columns else preds.columns[-1]
                         current_p_label = preds.columns[-1]
                         st.session_state.p_label = current_p_label if st.session_state.p_label is None else st.session_state.p_label
@@ -435,11 +457,35 @@ if st.session_state.get("run_triggered", False):
                         vals = preds[p_col].values
                         risk_accum += vals * weights[m_file.name]
                         temp_results[f"{m_file.name.split('.')[0]}_prob"] = vals
+
+                        model_features = feature_config.get(m_file.name, {}).get("features", [])
+                        contrib_df, warns = compute_model_attributions(
+                            mojo,
+                            model_df,
+                            model_features,
+                            p_col_hint=p_col,
+                        )
+                        by_model_attribs[m_file.name] = contrib_df
+                        attribution_warnings.extend(warns)
                     finally:
                         if os.path.exists(path): os.remove(path)
                         if hf is not None:
                             h2o.remove(hf)
-                    prog_bar.progress((i + 1) / len(model_files))
+                    prog_bar.progress((i + 1) / total_model_steps)
+
+                st.session_state.ml_attributions = {
+                    "by_model": by_model_attribs,
+                    "aggregated": aggregate_weighted_attributions(by_model_attribs, weights),
+                    "meta": {
+                        "method": "perturbation_one_at_a_time",
+                        "baseline": "cohort_median_or_mode",
+                        "features_by_model": {
+                            name: feature_config.get(name, {}).get("features", [])
+                            for name in by_model_attribs
+                        },
+                        "warnings": attribution_warnings,
+                    },
+                }
 
                 temp_results["Ri_Global_Risk"] = risk_accum
 
@@ -472,8 +518,8 @@ if st.session_state.base_results is not None:
     df["Context_Contribution"] = (1 - lambda_val) * df["Ci_Context_Score"]
     df["Lambda"] = lambda_val
 
-    home_tab, tab1, tab2, tab3, tab_robustness, tab_help, tab4 = st.tabs(
-        ["Home", "Overview", "Models", "Context", "Robustness", "Help", "About"]
+    home_tab, tab1, tab2, tab3, tab_explain, tab_robustness, tab_help, tab4 = st.tabs(
+        ["Home", "Overview", "Models", "Context", "Explain", "Robustness", "Help", "About"]
     )
 
     with home_tab:
@@ -558,20 +604,8 @@ if st.session_state.base_results is not None:
                     help="Weighted final prioritization score",
                     format="percent",
                 ),
-                "Ri_Global_Risk": st.column_config.ProgressColumn(
-                    "ML Risk (Ri)",
-                    format="percent",
-                    min_value=0,
-                    max_value=1,
-                    color="auto-inverse"
-                ),
-                "Ci_Context_Score": st.column_config.ProgressColumn(
-                    "Context Alignment (Ci)",
-                    format="%.2f",
-                    min_value=0,
-                    max_value=1,
-                    color="auto-inverse"
-                ),
+                "Ri_Global_Risk": _risk_progress_column("ML Risk (Ri)"),
+                "Ci_Context_Score": _context_progress_column("Context Alignment (Ci)"),
             },
             width='stretch',
             height=500
@@ -618,20 +652,17 @@ if st.session_state.base_results is not None:
 
         prob_df["Ri_Global_Risk"] = global_risk
 
-        styled_prob_df = prob_df.style \
-            .format("{:.1%}", subset=["Ri_Global_Risk"]) \
-            .background_gradient(cmap='RdYlGn_r', subset=["Ri_Global_Risk"], vmin=0, vmax=1)
+        prob_column_config = {
+            id_col: st.column_config.TextColumn(id_col),
+            "Ri_Global_Risk": _risk_progress_column("Global ML Risk (Ri)"),
+        }
+        for col in prob_cols:
+            model_label = col.replace("_prob", "").replace("_", " ")
+            prob_column_config[col] = _risk_progress_column(model_label)
 
         st.dataframe(
-            styled_prob_df,
-            column_config={
-                "Ri_Global_Risk": st.column_config.ProgressColumn(
-                    "Global ML Risk (Ri)",
-                    format="%.2f",
-                    min_value=0,
-                    max_value=1,
-                )
-            },
+            prob_df,
+            column_config=prob_column_config,
             width='stretch'
         )
 
@@ -658,6 +689,7 @@ if st.session_state.base_results is not None:
 
         # 1. Selector de Regla Inteligente
         rules = st.session_state.context_config['rules']
+        context_config = st.session_state.context_config
 
         # Diccionario para nombres bonitos en la UI
         type_labels = {
@@ -679,7 +711,7 @@ if st.session_state.base_results is not None:
             else:
                 clean_type = type_labels.get(r_type, r_type)
 
-            label = r_name if r_name else r_feat
+            label = humanize_rule(r_name, context_config) if r_name else r_feat
             rule_options.append(f"{label} [{clean_type}]")
 
         selected_rule_idx = st.selectbox(
@@ -694,6 +726,7 @@ if st.session_state.base_results is not None:
         m_type = selected_rule.get('type')
         params = selected_rule.get('params')
         rule_alias = selected_rule.get('name') or feat
+        rule_label = humanize_rule(rule_alias, context_config)
 
         # 2. Verificar datos y preparar visualización
         raw_data = st.session_state.master_data
@@ -771,7 +804,7 @@ if st.session_state.base_results is not None:
             st.altair_chart(final_chart, width='stretch')
 
         elif feat in raw_data.columns and m_type in ('categorical_map', 'categorical_set'):
-            st.info(f"Categorical rule '{rule_alias}' selected. Membership curves are only available for numeric rules.")
+            st.info(f"Categorical rule '{rule_label}' selected. Membership curves are only available for numeric rules.")
         else:
             st.warning(f"Column '{feat}' is not present in the dataset.")
 
@@ -795,19 +828,10 @@ if st.session_state.base_results is not None:
                     width='stretch'
                 )
             else:
-                styled_context_df = audit_df.style \
-                    .format("{:.1%}", subset=[feature_name]) \
-                    .background_gradient(cmap='RdYlGn_r', subset=[feature_name], vmin=0, vmax=1)
-
                 st.dataframe(
-                    styled_context_df,
+                    audit_df,
                     column_config={
-                        feature_name: st.column_config.ProgressColumn(
-                            f"μ({rule_alias})",
-                            format="%.2f",
-                            min_value=0,
-                            max_value=1,
-                        )
+                        feature_name: _context_progress_column(f"μ ({rule_label})"),
                     },
                     width='stretch'
                 )
@@ -827,9 +851,22 @@ if st.session_state.base_results is not None:
                     "CaseID",
                     st.session_state.master_data["CaseID"].values
                 )
+                rename_map = {
+                    col: humanize_rule(col[3:], context_config)
+                    for col in derived_mu_cols
+                }
+                rename_map["Context_Alignment"] = "Context Alignment (Ci)"
+                display_df = heatmap_df.rename(columns=rename_map)
+                derived_column_config = {
+                    "CaseID": st.column_config.TextColumn("CaseID"),
+                    "Context Alignment (Ci)": _context_progress_column("Context Alignment (Ci)"),
+                }
+                for col in derived_mu_cols:
+                    derived_column_config[rename_map[col]] = _context_progress_column(rename_map[col])
+
                 st.dataframe(
-                    heatmap_df.style.background_gradient(cmap='RdYlGn_r', vmin=0, vmax=1,
-                                                         subset=derived_mu_cols),
+                    display_df,
+                    column_config=derived_column_config,
                     width='stretch',
                     height=400
                 )
@@ -837,19 +874,30 @@ if st.session_state.base_results is not None:
                 # Optional: scatterplot of two selected derived rules
                 if len(derived_mu_cols) >= 2:
                     st.subheader("Scatterplot of Derived Rules")
+                    rule_label = lambda col: humanize_rule(col[3:], context_config)
                     col1, col2 = st.columns(2)
                     with col1:
-                        x_rule = st.selectbox("X-axis derived rule", derived_mu_cols, index=0)
+                        x_rule = st.selectbox(
+                            "X-axis derived rule",
+                            derived_mu_cols,
+                            index=0,
+                            format_func=rule_label,
+                        )
                     with col2:
-                        y_rule = st.selectbox("Y-axis derived rule", derived_mu_cols, index=1)
+                        y_rule = st.selectbox(
+                            "Y-axis derived rule",
+                            derived_mu_cols,
+                            index=1,
+                            format_func=rule_label,
+                        )
 
                     if x_rule != y_rule:
                         scatter_df = st.session_state.fuzzy_details[[x_rule, y_rule]].copy()
                         scatter_df['CaseID'] = st.session_state.master_data['CaseID']
                         scatter_df['Context_Alignment'] = st.session_state.base_results['Ci_Context_Score']
                         scatter_plot = alt.Chart(scatter_df).mark_circle(size=60).encode(
-                            x=alt.X(x_rule, title=x_rule),
-                            y=alt.Y(y_rule, title=y_rule),
+                            x=alt.X(x_rule, title=rule_label(x_rule)),
+                            y=alt.Y(y_rule, title=rule_label(y_rule)),
                             color=alt.Color('Context_Alignment', scale=alt.Scale(scheme='turbo')),
                             tooltip=['CaseID', x_rule, y_rule]
                         ).interactive()
@@ -860,6 +908,11 @@ if st.session_state.base_results is not None:
                 st.info("Derived rules exist but no computed values are available.")
         else:
             st.info("No derived rules defined in the context configuration.")
+
+
+    # --- TAB: EXPLAIN ---
+    with tab_explain:
+        render_explain_tab(df, lambda_val)
 
 
     # --- TAB: ROBUSTNESS ---
@@ -874,8 +927,8 @@ if st.session_state.base_results is not None:
         Three complementary views are provided:
 
         - **Bump Chart** — how each case's priority rank shifts across $\\lambda$ steps.
-        - **Ranks Box Plot** — distribution of ranks per alternative over the same sweep.
-        - **Rank Acceptability Indices** — relative frequency of each alternative occupying
+        - **Ranks Box Plot** — distribution of ranks per case over the same sweep.
+        - **Rank Acceptability Indices** — relative frequency of each case occupying
           each rank position.
 
         Use **Settings** to control the $\\lambda$ sweep granularity, how many cases are
@@ -1007,21 +1060,21 @@ if st.session_state.base_results is not None:
 
         st.subheader("Ranks Box Plot")
         st.caption(
-            "Distribution of priority rankings per alternative across all λ partition steps."
+            "Distribution of priority rankings per case across all λ partition steps."
         )
         box_chart = (
             alt.Chart(filtered_bump_df)
             .mark_boxplot(
                 extent="min-max",
-                size=40,
                 box=alt.MarkConfig(stroke="black"),
                 median=alt.MarkConfig(stroke="black"),
             )
             .encode(
                 x=alt.X(
                     f"{id_col}:N",
-                    title="Alternative (Case ID)",
+                    title="Case",
                     sort=rank_order,
+                    scale=alt.Scale(paddingInner=0.2, paddingOuter=0.05),
                 ),
                 y=alt.Y(
                     "Rank:Q",
@@ -1052,7 +1105,7 @@ if st.session_state.base_results is not None:
 
         st.subheader("Rank Acceptability Indices")
         st.caption(
-            "Relative frequency of each alternative occupying a given rank as λ varies."
+            "Relative frequency of each case occupying a given rank as λ varies."
         )
         rai_axis = alt.Axis(
             grid=True,
@@ -1066,7 +1119,7 @@ if st.session_state.base_results is not None:
             .encode(
                 x=alt.X(
                     f"{id_col}:O",
-                    title="Alternative (Case ID)",
+                    title="Case",
                     sort=rank_order,
                     axis=rai_axis,
                 ),

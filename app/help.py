@@ -201,6 +201,21 @@ where:
 
 ---
 
+## Explain Tab (Case-Level XAI)
+
+After running an analysis, the **Explain** tab provides a case-level breakdown of the prioritization score without re-running model inference.
+
+The tab includes four levels:
+
+1. **Global decomposition** — shows how `P = λ·Ri + (1−λ)·Ci` combines ML risk and context alignment.
+2. **ML risk attribution** — top features that push the cooperative ML risk up or down for the selected case. Attributions are precomputed during the analysis run using a one-at-a-time perturbation method (each feature replaced by a cohort baseline: median for numeric variables, mode for categorical variables).
+3. **Fuzzy context traceability** — membership degrees of atomic and derived rules for the selected case. Under a strict minimum aggregation, the bottleneck rule is highlighted.
+4. **Natural-language summary** — concise template-based explanation combining ML drivers and contextual constraints.
+
+> Note: the bundled AutoML MOJO models are predominantly Stacked Ensembles, which do not expose native H2O SHAP contributions. The perturbation-based attributions are therefore approximate local effects rather than exact TreeSHAP values.
+
+---
+
 ## Why This Approach?
 
 CADEMAS-ML supports:

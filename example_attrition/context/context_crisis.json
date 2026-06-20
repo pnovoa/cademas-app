@@ -4,6 +4,7 @@
   "rules": [
     {
       "name": "tenure_relevant",
+      "full_name": "Tenure relevant",
       "feature": "years_at_company",
       "type": "triangular",
       "params": [3, 10, 20],
@@ -11,22 +12,23 @@
     },
     {
       "name": "performance_at_least_medium",
+      "full_name": "Performance at least medium",
       "feature": "performance_rating",
       "type": "linear_increasing",
       "params": [2, 4],
       "note": "Performance rating: 3 is not poor; 4 is ideal."
     },
-
     {
       "name": "joblevel_high",
+      "full_name": "High job level",
       "feature": "job_level",
       "type": "linear_increasing",
       "params": [2, 5],
       "note": "Higher job level implies higher responsibility and harder replacement."
     },
-
     {
       "name": "jobrole_critical",
+      "full_name": "Critical job role",
       "feature": "job_role",
       "type": "categorical_set",
       "params": {
@@ -48,9 +50,9 @@
       },
       "note": "Role criticality table. You can tune these sets."
     },
-
     {
       "name": "salary_cost_ok_hr",
+      "full_name": "Salary cost ok (HR)",
       "feature": "monthly_income",
       "type": "triangular",
       "params": [3000, 6000, 9000],
@@ -59,6 +61,7 @@
     },
     {
       "name": "salary_cost_ok_rd",
+      "full_name": "Salary cost ok (R&D)",
       "feature": "monthly_income",
       "type": "triangular",
       "params": [4000, 10000, 15000],
@@ -67,15 +70,16 @@
     },
     {
       "name": "salary_cost_ok_sales",
+      "full_name": "Salary cost ok (Sales)",
       "feature": "monthly_income",
       "type": "triangular",
       "params": [4000, 10000, 15000],
       "when": { "feature": "department", "equals": "Sales" },
       "note": "Sales salary cost acceptable range."
     },
-
     {
       "name": "involvement_medium",
+      "full_name": "Medium involvement",
       "feature": "job_involvement",
       "type": "triangular",
       "params": [1, 3, 4],
@@ -83,14 +87,15 @@
     },
     {
       "name": "involvement_high",
+      "full_name": "High involvement",
       "feature": "job_involvement",
       "type": "linear_increasing",
       "params": [2, 4],
       "note": "High involvement: grows to 1 at 4."
     },
-
     {
       "name": "satisfaction_medium",
+      "full_name": "Medium satisfaction",
       "feature": "job_satisfaction",
       "type": "triangular",
       "params": [1, 3, 4],
@@ -98,16 +103,17 @@
     },
     {
       "name": "satisfaction_high",
+      "full_name": "High satisfaction",
       "feature": "job_satisfaction",
       "type": "linear_increasing",
       "params": [2, 4],
       "note": "High satisfaction: grows to 1 at 4."
     }
   ],
-
   "derived_rules": [
     {
       "name": "hard_to_replace",
+      "full_name": "Hard to replace",
       "op": "OR",
       "inputs": [
         { "rule": "joblevel_high" },
@@ -117,6 +123,7 @@
     },
     {
       "name": "commitment_medium_or_high",
+      "full_name": "Medium or high commitment",
       "op": "OR",
       "inputs": [
         { "rule": "involvement_medium" },
@@ -128,6 +135,7 @@
     },
     {
       "name": "salary_cost_ok",
+      "full_name": "Salary cost ok",
       "op": "OR",
       "inputs": [
         { "rule": "salary_cost_ok_hr" },
@@ -137,7 +145,6 @@
       "note": "Select the salary membership depending on department."
     }
   ],
-
   "logic": {
     "op": "AND",
     "inputs": [

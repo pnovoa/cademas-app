@@ -622,7 +622,7 @@ if st.session_state.base_results is not None:
 
         - **Model Weights** — contribution weight ($W_i$) of each model, derived from the
           performance metric selected in the sidebar.
-        - **ADM Risk Probabilities** — per-case risk probabilities predicted by each model,
+        - **Risk Probabilities** — per-case risk probabilities predicted by each model,
           together with the weighted **Global ML Risk (Ri)** aggregated across all models.
         """)
 
@@ -631,7 +631,7 @@ if st.session_state.base_results is not None:
             weights = st.session_state.ml_details["weights"]
             w_df = pd.DataFrame(list(weights.items()), columns=["Model", "Weight (Wi)"])
             st.dataframe(w_df, width='stretch')
-        st.subheader("ADM Risk Probabilities")
+        st.subheader("Risk Probabilities")
         id_col = "CaseID"
         prob_cols = [c for c in df.columns if c.endswith("_prob")]
 
@@ -1066,10 +1066,6 @@ if st.session_state.base_results is not None:
         )
         st.altair_chart(final_chart, width='stretch', theme="streamlit", height=500)
 
-        st.subheader("Ranks Box Plot")
-        st.caption(
-            "Distribution of priority rankings per case across all λ partition steps."
-        )
         box_chart = (
             alt.Chart(filtered_bump_df)
             .mark_boxplot(
@@ -1098,7 +1094,6 @@ if st.session_state.base_results is not None:
                 tooltip=[id_col, alt.Tooltip("Rank", title="Rank")],
             )
         )
-        st.altair_chart(box_chart, width="stretch", theme="streamlit", height=400)
 
         n_steps = len(lambda_steps)
         rai_df = (
@@ -1111,10 +1106,6 @@ if st.session_state.base_results is not None:
 
         rai_color_range = [to_hex(cm.RdYlGn_r(v)) for v in np.linspace(0, 1, 9)]
 
-        st.subheader("Rank Acceptability Indices")
-        st.caption(
-            "Relative frequency of each case occupying a given rank as λ varies."
-        )
         rai_axis = alt.Axis(
             grid=True,
             gridColor="black",
@@ -1168,7 +1159,33 @@ if st.session_state.base_results is not None:
         rai_chart = alt.layer(rai_rect, rai_text).properties(
             height=max(200, rai_df["Rank"].nunique() * 25)
         )
-        st.altair_chart(rai_chart, width="stretch", theme="streamlit")
+
+        n_cases_shown = len(top_ids)
+        box_caption = (
+            "Distribution of priority rankings per case across all λ partition steps."
+        )
+        rai_caption = (
+            "Relative frequency of each case occupying a given rank as λ varies."
+        )
+
+        if n_cases_shown <= 10:
+            col_box, col_rai = st.columns(2)
+            with col_box:
+                st.subheader("Ranks Box Plot")
+                st.caption(box_caption)
+                st.altair_chart(box_chart, width="stretch", theme="streamlit", height=400)
+            with col_rai:
+                st.subheader("Rank Acceptability Indices")
+                st.caption(rai_caption)
+                st.altair_chart(rai_chart, width="stretch", theme="streamlit")
+        else:
+            st.subheader("Ranks Box Plot")
+            st.caption(box_caption)
+            st.altair_chart(box_chart, width="stretch", theme="streamlit", height=400)
+
+            st.subheader("Rank Acceptability Indices")
+            st.caption(rai_caption)
+            st.altair_chart(rai_chart, width="stretch", theme="streamlit")
 
 # --- TAB HELP ---
 

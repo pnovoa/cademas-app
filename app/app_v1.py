@@ -673,12 +673,12 @@ if st.session_state.base_results is not None:
         It shows how expert-defined fuzzy rules are applied to each case and aggregated into
         the **Context Alignment** score (**Ci**) that complements the ML risk.
 
-        Four sections are included:
+        Three sections are included:
 
         - **Membership Functions** — inspect how a selected atomic rule maps input values to
-          membership degrees ($\\mu$), overlaid on the case distribution.
-        - **Numerical Audit** — per-case raw feature values and computed membership degrees
-          for the selected rule.
+          membership degrees ($\\mu$), overlaid on the case distribution. A **Numerical Audit**
+          table alongside the chart reports per-case raw feature values and computed membership
+          degrees for the selected rule.
         - **Derived Rules Overview** — membership values of composite rules and the resulting
           **Context Alignment** score across all cases.
         - **Scatterplot of Derived Rules** — explore the relationship between two derived
@@ -730,111 +730,119 @@ if st.session_state.base_results is not None:
 
         # 2. Verificar datos y preparar visualización
         raw_data = st.session_state.master_data
+        col_chart, col_audit = st.columns([1.4, 1], gap="medium")
 
-        if feat in raw_data.columns and m_type not in ('categorical_map', 'categorical_set'):
+        with col_chart:
+            if feat in raw_data.columns and m_type not in ('categorical_map', 'categorical_set'):
 
-            # --- Lógica de Renderizado Altair ---
+                # --- Lógica de Renderizado Altair ---
 
-            # A. Preparar Rango X
-            data_vals = raw_data[feat].dropna()
-            min_d, max_d = data_vals.min(), data_vals.max()
+                # A. Preparar Rango X
+                data_vals = raw_data[feat].dropna()
+                min_d, max_d = data_vals.min(), data_vals.max()
 
-            # El rango del gráfico debe cubrir los datos Y los parámetros de la regla
-            # Concatenamos params con min/max de los datos para encontrar los límites
-            all_points = list(params) + [min_d, max_d]
-            x_start = min(all_points) * 0.95
-            x_end = max(all_points) * 1.05
+                # El rango del gráfico debe cubrir los datos Y los parámetros de la regla
+                # Concatenamos params con min/max de los datos para encontrar los límites
+                all_points = list(params) + [min_d, max_d]
+                x_start = min(all_points) * 0.95
+                x_end = max(all_points) * 1.05
 
-            x_grid = np.linspace(x_start, x_end, 300)
+                x_grid = np.linspace(x_start, x_end, 300)
 
-            # B. Calcular Y (Membresía) usando la función genérica
-            y_grid = get_membership(x_grid, m_type, params)
+                # B. Calcular Y (Membresía) usando la función genérica
+                y_grid = get_membership(x_grid, m_type, params)
 
-            line_df = pd.DataFrame({'x_val': x_grid, 'membership': y_grid})
+                line_df = pd.DataFrame({'x_val': x_grid, 'membership': y_grid})
 
-            # C. Preparar Líneas Verticales de Referencia
-            labels = []
-            if m_type == 'triangular':
-                labels = ['a (Inicio)', 'b (Pico)', 'c (Fin)']
-            elif m_type == 'trapezoidal':
-                labels = ['a (Inicio)', 'b (Plano in)', 'c (Plano out)', 'd (Fin)']
-            elif m_type == 'linear_increasing':
-                labels = ['a (Base 0)', 'b (Tope 1)']
-            elif m_type == 'linear_decreasing':
-                labels = ['a (Tope 1)', 'b (Base 0)']
-            else:
-                labels = [f"p{i}" for i in range(len(params))]
+                # C. Preparar Líneas Verticales de Referencia
+                labels = []
+                if m_type == 'triangular':
+                    labels = ['a (Inicio)', 'b (Pico)', 'c (Fin)']
+                elif m_type == 'trapezoidal':
+                    labels = ['a (Inicio)', 'b (Plano in)', 'c (Plano out)', 'd (Fin)']
+                elif m_type == 'linear_increasing':
+                    labels = ['a (Base 0)', 'b (Tope 1)']
+                elif m_type == 'linear_decreasing':
+                    labels = ['a (Tope 1)', 'b (Base 0)']
+                else:
+                    labels = [f"p{i}" for i in range(len(params))]
 
-            rules_df = pd.DataFrame({
-                'x_pos': params,
-                'label': labels,
-                'color': ['red'] * len(params)
-            })
+                rules_df = pd.DataFrame({
+                    'x_pos': params,
+                    'label': labels,
+                    'color': ['red'] * len(params)
+                })
 
-            # --- D. Construcción del Gráfico (Altair) ---
+                # --- D. Construcción del Gráfico (Altair) ---
 
-            # Capa 1: Histograma
-            hist = alt.Chart(raw_data).mark_bar(color='#e0e0e0', opacity=0.7).encode(
-                x=alt.X(feat, bin=alt.Bin(maxbins=30), title=feat),
-                y=alt.Y('count()', title='Frequency'),
-                tooltip=['count()']
-            )
-
-            # Capa 2: Curva Membresía
-            line = alt.Chart(line_df).mark_line(color="#FF4B4B", strokeWidth=3).encode(
-                x='x_val',
-                y=alt.Y('membership', title='Membership (μ)', scale=alt.Scale(domain=[0.0, 1])),
-                tooltip=[alt.Tooltip('x_val', format='.2f'), alt.Tooltip('membership', format='.2f')]
-            )
-
-            # Capa 3: Referencias Verticales
-            refs = alt.Chart(rules_df).mark_rule(strokeDash=[5, 5],  strokeWidth=2, color='black', opacity=0.5).encode(
-                x='x_pos',
-                tooltip=['label', 'x_pos']
-            )
-
-            # Combinar con ejes independientes
-            final_chart = alt.layer(hist, line, refs).resolve_scale(
-                y='independent'
-            ).properties(
-                height=350,
-                title=f"Membership and Frequency for '{rule_alias}'"
-            )
-
-            st.altair_chart(final_chart, width='stretch')
-
-        elif feat in raw_data.columns and m_type in ('categorical_map', 'categorical_set'):
-            st.info(f"Categorical rule '{rule_label}' selected. Membership curves are only available for numeric rules.")
-        else:
-            st.warning(f"Column '{feat}' is not present in the dataset.")
-
-        st.subheader("Numerical Audit")
-
-        # Tabla detallada
-        feature_name = f"mu_{rule_alias}"
-        audit_cols = [feat, feature_name]
-        if feature_name in st.session_state.fuzzy_details.columns:
-            id_col = "CaseID"
-
-            audit_df = pd.concat([
-                raw_data[[id_col, feat]].reset_index(drop=True),
-                st.session_state.fuzzy_details[[feature_name]].reset_index(drop=True)
-            ], axis=1)
-
-            if feat in raw_data.columns and m_type in ('categorical_map', 'categorical_set'):
-                styled_context_df = audit_df.style
-                st.dataframe(
-                    styled_context_df,
-                    width='stretch'
+                # Capa 1: Histograma
+                hist = alt.Chart(raw_data).mark_bar(color='#e0e0e0', opacity=0.7).encode(
+                    x=alt.X(feat, bin=alt.Bin(maxbins=30), title=feat),
+                    y=alt.Y('count()', title='Frequency'),
+                    tooltip=['count()']
                 )
-            else:
-                st.dataframe(
-                    audit_df,
-                    column_config={
-                        feature_name: _context_progress_column(f"μ ({rule_label})"),
-                    },
-                    width='stretch'
+
+                # Capa 2: Curva Membresía
+                line = alt.Chart(line_df).mark_line(color="#FF4B4B", strokeWidth=3).encode(
+                    x='x_val',
+                    y=alt.Y('membership', title='Membership (μ)', scale=alt.Scale(domain=[0.0, 1])),
+                    tooltip=[alt.Tooltip('x_val', format='.2f'), alt.Tooltip('membership', format='.2f')]
                 )
+
+                # Capa 3: Referencias Verticales
+                refs = alt.Chart(rules_df).mark_rule(strokeDash=[5, 5],  strokeWidth=2, color='black', opacity=0.5).encode(
+                    x='x_pos',
+                    tooltip=['label', 'x_pos']
+                )
+
+                # Combinar con ejes independientes
+                final_chart = alt.layer(hist, line, refs).resolve_scale(
+                    y='independent'
+                ).properties(
+                    height=350,
+                    title=f"Membership and Frequency for '{rule_alias}'"
+                )
+
+                st.altair_chart(final_chart, width='stretch')
+
+            elif feat in raw_data.columns and m_type in ('categorical_map', 'categorical_set'):
+                st.info(f"Categorical rule '{rule_label}' selected. Membership curves are only available for numeric rules.")
+            else:
+                st.warning(f"Column '{feat}' is not present in the dataset.")
+
+        with col_audit:
+            st.markdown(
+                "<p style='font-size: 14px; font-weight: bold; margin: 0 0 0.5rem 0;'>"
+                "Numerical Audit</p>",
+                unsafe_allow_html=True,
+            )
+
+            feature_name = f"mu_{rule_alias}"
+            if feature_name in st.session_state.fuzzy_details.columns:
+                id_col = "CaseID"
+
+                audit_df = pd.concat([
+                    raw_data[[id_col, feat]].reset_index(drop=True),
+                    st.session_state.fuzzy_details[[feature_name]].reset_index(drop=True)
+                ], axis=1)
+
+                if feat in raw_data.columns and m_type in ('categorical_map', 'categorical_set'):
+                    st.dataframe(
+                        audit_df,
+                        width='stretch',
+                        height=350,
+                    )
+                else:
+                    st.dataframe(
+                        audit_df,
+                        column_config={
+                            feature_name: _context_progress_column(f"μ ({rule_label})"),
+                        },
+                        width='stretch',
+                        height=350,
+                    )
+            else:
+                st.info("No membership values available for the selected rule.")
 
         # --- Derived Rules Visualization ---
         st.subheader("Derived Rules Overview")
